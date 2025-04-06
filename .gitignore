@@ -1,0 +1,23 @@
+# main direcotory and other files
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# frontend
+frontend/dist/
+frontend/node_modules/
+frontend/.env
+
+# secrets, keys
+*.env
+*.pfx
+*.pem
+
+# docker
+docker-compose.dcproj
+.dockerignore
+docker-compose.override.yml
