@@ -1,6 +1,11 @@
+version: "3.8"
+
 services:
   backend:
-    image: ${DOCKER_REGISTRY-}backend
     build:
-      context: backend
+      context: ./backend
       dockerfile: Dockerfile
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_URLS=http://+:80

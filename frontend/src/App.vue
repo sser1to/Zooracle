@@ -1,26 +1,25 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <div class="p-4">
+    <h1 class="text-xl font-bold">Ответ от сервера:</h1>
+    <p v-if="message" class="mt-2 text-green-600">{{ message }}</p>
+    <p v-else class="text-gray-500">Загрузка...</p>
+  </div>
 </template>
 
-<script>
-import HelloWorld from './components/HelloWorld.vue'
+<script setup>
+import { ref, onMounted } from 'vue'
 
-export default {
-  name: 'App',
-  components: {
-    HelloWorld
+const message = ref(null)
+
+onMounted(async () => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/test/hello`)
+    message.value = await response.text()
+  } catch (err) {
+    message.value = 'Ошибка при получении данных'
   }
-}
+})
 </script>
 
-<style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
+<style scoped>
 </style>
