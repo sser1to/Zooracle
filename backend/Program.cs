@@ -1,3 +1,6 @@
+using backend.Services;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -9,9 +12,14 @@ builder.Services.AddCors(options =>
                               .AllowAnyHeader());
     });
 builder.Services.AddControllers();
+// Регистрация сервиса для MiniO
+builder.Services.AddSingleton<IMinioService, MinioService>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+// Подключение БД
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
