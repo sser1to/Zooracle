@@ -19,13 +19,16 @@ app = FastAPI(title="Zooracle API", version="0.1.0")
 origins = [
     "http://localhost:8080",  # Vue CLI dev server
     "http://localhost:8081",  # альтернативный порт Vue CLI
+    "http://localhost:3000",  # на случай, если используется другой порт
     "http://127.0.0.1:8080",
-    "http://127.0.0.1:8081"
+    "http://127.0.0.1:8081",
+    "http://127.0.0.1:3000",
+    "electron://altair"      # Для Electron-приложения
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],     # Временно разрешаем все источники для отладки
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,11 +41,12 @@ app.include_router(router, prefix="/api")
 def read_root():
     return {"message": "Welcome to Zooracle API"}
 
-@app.get("/health")
+# Перемещаем эндпоинты под /api префикс, чтобы они соответствовали настройкам клиента
+@app.get("/api/health")
 def health_check():
     return {"status": "success", "message": "API is healthy"}
 
-@app.get("/db-status")
+@app.get("/api/db-status")
 def db_status(db: Session = Depends(get_db)):
     try:
         # Проверяем соединение с БД, выполнив простой запрос

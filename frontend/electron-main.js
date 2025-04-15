@@ -9,6 +9,10 @@ const isDev = process.env.NODE_ENV !== 'production';
 let win;
 let frontendProcess = null;
 
+// URL для фронтенда и API
+const frontendUrl = 'http://localhost:8080';
+const apiUrl = 'http://localhost:8000/api'; // Изменяем порт с 8080 на 8000 для API в докере
+
 // Функция для проверки доступности фронтенд-сервера
 function checkFrontendAvailability(url, callback) {
   http.get(url, (res) => {
@@ -75,7 +79,6 @@ function createWindow() {
   if (isDev) {
     // В режиме разработки используем сервер для разработки
     // Проверяем, доступен ли сервер разработки
-    const frontendUrl = 'http://localhost:8080';
     checkFrontendAvailability(frontendUrl, (isAvailable) => {
       if (!isAvailable && !frontendProcess) {
         console.log('Фронтенд-сервер не обнаружен, запускаем...');
@@ -128,7 +131,7 @@ function setupIPCHandlers() {
   ipcMain.handle('check-db-status', async () => {
     try {
       // Здесь можно сделать запрос к API для проверки статуса БД
-      const response = await fetch('http://localhost:8080/db-status');
+      const response = await fetch(`${apiUrl}/db-status`);
       return await response.json();
     } catch (error) {
       console.error('Ошибка при проверке статуса БД:', error);
@@ -140,7 +143,7 @@ function setupIPCHandlers() {
   ipcMain.handle('check-api-health', async () => {
     try {
       // Здесь можно сделать запрос к API для проверки его работоспособности
-      const response = await fetch('http://localhost:8080/health');
+      const response = await fetch(`${apiUrl}/health`);
       return await response.json();
     } catch (error) {
       console.error('Ошибка при проверке API:', error);
