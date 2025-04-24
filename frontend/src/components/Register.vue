@@ -46,11 +46,11 @@
         </span>
       </div>
       
-      <button type="submit" class="btn-primary">Зарегистрироваться</button>
+      <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
     </form>
     
     <div class="auth-footer">
-      <button @click="goBack" class="btn-secondary">Назад</button>
+      <button @click="goBack" class="btn btn-secondary">Назад</button>
     </div>
 
     <div v-if="error" class="error-message">
@@ -272,29 +272,30 @@ input {
   cursor: pointer;
 }
 
-.btn-primary {
+/* Общий класс для всех кнопок */
+.btn {
   width: 100%;
   padding: 12px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
+  box-sizing: border-box;
+  display: inline-block;
+  text-align: center;
+}
+
+.btn-primary {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
   margin-bottom: 15px;
 }
 
 .btn-secondary {
-  width: 100%;
-  padding: 12px;
   background-color: white;
   color: #4CAF50;
   border: 1px solid #4CAF50;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
   text-decoration: none;
-  display: inline-block;
 }
 
 .error-message {

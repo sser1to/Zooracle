@@ -29,11 +29,11 @@
         <router-link to="/reset-password">Забыли пароль?</router-link>
       </div>
       
-      <button type="submit" class="btn-primary">Войти</button>
+      <button type="submit" class="btn btn-primary">Войти</button>
     </form>
     
     <div class="auth-footer">
-      <router-link to="/register" class="btn-secondary">Зарегистрироваться</router-link>
+      <router-link to="/register" class="btn btn-secondary">Зарегистрироваться</router-link>
     </div>
 
     <div v-if="error" class="error-message">
@@ -130,29 +130,30 @@ input {
   text-decoration: none;
 }
 
-.btn-primary {
+/* Общий класс для всех кнопок */
+.btn {
   width: 100%;
   padding: 12px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
+  box-sizing: border-box;
+  display: inline-block;
+  text-align: center;
+}
+
+.btn-primary {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
   margin-bottom: 15px;
 }
 
 .btn-secondary {
-  width: 100%;
-  padding: 12px;
   background-color: white;
   color: #4CAF50;
   border: 1px solid #4CAF50;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
   text-decoration: none;
-  display: inline-block;
 }
 
 .error-message {
