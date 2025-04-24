@@ -13,3 +13,4 @@ electron-dist/
 docker-compose.dcproj
 .dockerignore
 docker-compose.override.yml
+copilot-instructions.md

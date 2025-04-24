@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
@@ -60,14 +60,31 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false, // отключение nodeIntegration для безопасности
       contextIsolation: true, // защита от prototype pollution
-      preload: path.join(__dirname, 'preload.js') // используем preload скрипт
+      preload: path.join(__dirname, 'preload.js'), // используем preload скрипт
+      devTools: true, // явно разрешаем инструменты разработчика
     },
     // Отключаем стандартную верхнюю панель меню
-    autoHideMenuBar: true,
-    menuBarVisible: false,
+    autoHideMenuBar: false, // временно включим меню для доступа к DevTools
+    menuBarVisible: true,
     // Запуск приложения на весь экран
     show: false // Скрываем окно до максимизации
   });
+
+  // Добавляем меню с опцией DevTools
+  const menuTemplate = [
+    {
+      label: 'Разработка',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools', label: 'Открыть консоль разработчика' },
+        { type: 'separator' },
+        { role: 'quit', label: 'Выйти' }
+      ]
+    }
+  ];
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
 
   // Максимизируем окно перед показом
   win.once('ready-to-show', () => {
@@ -157,6 +174,20 @@ function setupIPCHandlers() {
 app.whenReady().then(() => {
   setupIPCHandlers();
   createWindow();
+  
+  // Регистрируем глобальное сочетание клавиш для открытия консоли разработчика
+  globalShortcut.register('F12', () => {
+    if (win && win.webContents) {
+      win.webContents.toggleDevTools();
+    }
+  });
+  
+  // Регистрируем Ctrl+Shift+I (или Command+Option+I на macOS) как альтернативный способ
+  globalShortcut.register(process.platform === 'darwin' ? 'CommandOrControl+Option+I' : 'Ctrl+Shift+I', () => {
+    if (win && win.webContents) {
+      win.webContents.toggleDevTools();
+    }
+  });
 });
 
 // Выход, когда все окна закрыты
@@ -179,6 +210,11 @@ app.on('activate', () => {
   if (win === null) {
     createWindow();
   }
+});
+
+// Убеждаемся, что горячие клавиши освобождаются при выходе
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 // Убеждаемся, что фронтенд-сервер завершится вместе с приложением
