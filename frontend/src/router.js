@@ -44,6 +44,15 @@ const routes = [
     meta: { requiresAuth: false, title: 'Установка нового пароля - Zooracle' }
   },
   
+  // Альтернативный маршрут для ссылок восстановления пароля с токеном в разных форматах
+  {
+    path: '/reset-password-confirm',
+    redirect: to => {
+      // Перенаправление на стандартный маршрут с сохранением параметров запроса
+      return { path: '/reset-password/confirm', query: to.query };
+    }
+  },
+  
   // Маршрут для выхода из аккаунта
   {
     path: '/logout',
@@ -94,10 +103,11 @@ const routes = [
 
 /**
  * Создание экземпляра роутера с использованием HTML5 истории
+ * Важно: всегда используем корневой путь '/' для корректной работы с вложенными маршрутами
  * @type {Router}
  */
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/'),
   routes,
   // Настройка прокрутки страницы при переходах
   scrollBehavior(to, from, savedPosition) {

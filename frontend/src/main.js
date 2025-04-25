@@ -4,6 +4,12 @@ import router from './router'
 import axios from 'axios'
 import authService from './services/auth'
 
+/**
+ * Настройка базового URL для Axios
+ * Это обеспечивает корректную работу API запросов независимо от текущего маршрута
+ */
+axios.defaults.baseURL = window.location.origin;
+
 // Настройка перехватчика запросов для добавления токена авторизации
 axios.interceptors.request.use(
   (config) => {
@@ -11,9 +17,14 @@ axios.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Добавляем отладочную информацию
+    console.log(`API запрос: ${config.method.toUpperCase()} ${config.url}`);
+    
     return config;
   },
   (error) => {
+    console.error('Ошибка при формировании запроса:', error);
     return Promise.reject(error);
   }
 );
@@ -23,6 +34,7 @@ axios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
+      console.log('Получен статус 401 - перенаправление на страницу входа');
       authService.logout();
       router.push('/login');
     }
@@ -30,6 +42,11 @@ axios.interceptors.response.use(
   }
 );
 
-createApp(App)
-  .use(router)
-  .mount('#app')
+// Создаем и монтируем основное приложение
+const app = createApp(App);
+
+// Добавляем глобальное свойство $axios для доступа во всех компонентах
+app.config.globalProperties.$axios = axios;
+
+// Подключаем роутер и монтируем приложение
+app.use(router).mount('#app')

@@ -104,16 +104,35 @@ export default {
       console.log('ResetPasswordConfirm: onBeforeMount вызван');
       console.log('Токен из props:', props.token);
       console.log('URL параметры:', route.query);
-
-      // Получаем токен из пропсов или из URL
+      
+      // Получаем токен из разных возможных источников
       if (props.token) {
+        // 1. Из пропсов (если передан напрямую)
         token.value = props.token;
         console.log('Токен получен из пропсов:', token.value);
       } else if (route.query && route.query.token) {
+        // 2. Из параметров URL (стандартный способ)
         token.value = route.query.token;
-        console.log('Токен получен из URL:', token.value);
+        console.log('Токен получен из URL параметров:', token.value);
       } else {
-        console.warn('Токен не найден ни в пропсах, ни в URL');
+        // 3. Попытка извлечь токен из последнего сегмента URL (альтернативный формат)
+        const urlSegments = window.location.pathname.split('/');
+        const lastSegment = urlSegments[urlSegments.length - 1];
+        if (lastSegment && lastSegment !== 'confirm') {
+          token.value = lastSegment;
+          console.log('Токен извлечен из последнего сегмента URL:', token.value);
+        } else {
+          console.warn('Токен не найден ни в одном из источников');
+        }
+      }
+
+      // Если токен найден, выводим только первые и последние 5 символов для безопасности
+      if (token.value) {
+        const tokenLength = token.value.length;
+        const maskedToken = tokenLength > 10 
+          ? `${token.value.substring(0, 5)}...${token.value.substring(tokenLength - 5)}`
+          : token.value;
+        console.log(`Найденный токен (маскированный): ${maskedToken}`);
       }
     });
 
@@ -132,6 +151,28 @@ export default {
       } else {
         console.log('Компонент успешно смонтирован с токеном');
       }
+
+      // Добавляем проверку на правильность загрузки ресурсов
+      document.addEventListener('DOMContentLoaded', () => {
+        const stylesheets = document.styleSheets;
+        let loadedStyles = 0;
+        
+        for (let i = 0; i < stylesheets.length; i++) {
+          try {
+            if (stylesheets[i].cssRules) {
+              loadedStyles++;
+            }
+          } catch (e) {
+            console.error('Ошибка при проверке стилей:', e);
+          }
+        }
+        
+        console.log(`Загружено ${loadedStyles} из ${stylesheets.length} таблиц стилей`);
+        
+        if (loadedStyles === 0) {
+          console.warn('Не загружены таблицы стилей. Возможны проблемы с отображением.');
+        }
+      });
     });
 
     /**
@@ -171,8 +212,11 @@ export default {
         }
         
         console.log('Отправка запроса на сервер для сброса пароля');
-        // Отправка запроса на API для сброса пароля
-        await axios.post('/api/auth/reset-password/confirm', {
+        // Отправка запроса на API для сброса пароля с использованием абсолютного пути
+        const apiUrl = `${axios.defaults.baseURL}/api/auth/reset-password/confirm`;
+        console.log(`Используется URL API: ${apiUrl}`);
+        
+        await axios.post(apiUrl, {
           token: token.value,
           password: passwordData.password,
           confirm_password: passwordData.confirm_password
@@ -257,6 +301,13 @@ export default {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Добавляем тень для видимости на белом фоне */
 }
 
+/* Добавляем базовые стили для body на случай, если глобальные стили не загружаются */
+:root {
+  --background-color: #f5f5f5;
+  --text-color: #333;
+}
+
+/* Остальные стили идентичны оригинальному компоненту */
 .logo {
   width: 80px;
   margin-bottom: 20px;
