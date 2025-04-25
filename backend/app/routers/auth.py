@@ -6,19 +6,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import User
+from ..models import User, PasswordResetToken
 from ..schemas import UserCreate, Token, UserResponse, UserLogin, PasswordResetRequest, PasswordReset
 from ..services.auth_service import (
     authenticate_user, 
     create_access_token, 
     get_password_hash, 
     ACCESS_TOKEN_EXPIRE_MINUTES
-)
-from ..services.smtp_service import (
-    generate_password_reset_token,
-    send_password_reset_email,
-    verify_reset_token,
-    invalidate_token
 )
 
 # Настройка логирования
@@ -155,7 +149,7 @@ async def request_password_reset(request: Request, reset_data: PasswordResetRequ
     Returns:
         dict: Сообщение о результате операции
     """
-    # Логируем запрос
+    # Логирование запроса
     logger.info(f"Получен запрос на восстановление пароля для email: {reset_data.email}")
     
     # Находим пользователя в базе по email
@@ -168,57 +162,85 @@ async def request_password_reset(request: Request, reset_data: PasswordResetRequ
     
     logger.info(f"Пользователь с ID={user.id} найден для email {reset_data.email}")
     
-    # Генерируем токен для сброса пароля
-    token = generate_password_reset_token(user.id, user.email)
-    
-    # Формируем URL для сброса пароля
-    # Сначала пытаемся использовать FRONTEND_URL из переменных окружения
-    frontend_url = os.getenv("FRONTEND_URL")
-    if frontend_url:
-        # Удаляем завершающий слеш, если он есть
-        if frontend_url.endswith('/'):
-            frontend_url = frontend_url[:-1]
+    try:
+        # Инвалидируем все предыдущие токены для этого пользователя
+        old_tokens = db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id, 
+            PasswordResetToken.is_used == False
+        ).all()
         
-        logger.info(f"Используем FRONTEND_URL из окружения: {frontend_url}")
-        reset_url = f"{frontend_url}/reset-password/confirm?token={token}"
-    else:
-        # Определяем базовый URL из запроса
-        base_url = str(request.base_url)
-        logger.info(f"FRONTEND_URL не задан, используем базовый URL из запроса: {base_url}")
+        for old_token in old_tokens:
+            old_token.is_used = True
         
-        # Извлекаем протокол и хост
-        protocol = "http"
-        host = "localhost:8080"  # Значение по умолчанию
+        # Создаем новый токен для сброса пароля
+        reset_token = PasswordResetToken.generate(user_id=user.id, email=user.email)
+        db.add(reset_token)
+        db.commit()
         
-        if "://" in base_url:
-            protocol = base_url.split("://")[0]
-            host_part = base_url.split("://")[1]
-            if "/" in host_part:
-                host = host_part.split("/")[0]
-            else:
-                host = host_part
+        token = reset_token.token
+        logger.info(f"Создан новый токен сброса пароля для пользователя ID={user.id}")
         
-        # Если мы в локальном окружении, используем localhost:8080
-        if "localhost" in host or "127.0.0.1" in host:
-            reset_url = f"{protocol}://localhost:8080/reset-password/confirm?token={token}"
+        # Формируем URL для сброса пароля
+        # Сначала пытаемся использовать FRONTEND_URL из переменных окружения
+        frontend_url = os.getenv("FRONTEND_URL")
+        if frontend_url:
+            # Удаляем завершающий слеш, если он есть
+            if frontend_url.endswith('/'):
+                frontend_url = frontend_url[:-1]
+            
+            logger.info(f"Используем FRONTEND_URL из окружения: {frontend_url}")
+            reset_url = f"{frontend_url}/reset-password/confirm?token={token}"
         else:
-            # Иначе используем хост из запроса
-            reset_url = f"{protocol}://{host}/reset-password/confirm?token={token}"
-    
-    logger.info(f"Сформирован URL для сброса пароля: {reset_url}")
-    
-    # Отправляем email со ссылкой для сброса пароля
-    logger.info(f"Отправляем письмо на {user.email} с URL: {reset_url}")
-    success = send_password_reset_email(user.email, reset_url)
-    
-    if success:
-        logger.info(f"Письмо для сброса пароля успешно отправлено на {user.email}")
-        return {"message": "Инструкции по сбросу пароля отправлены на указанный email"}
-    else:
-        logger.error(f"Не удалось отправить письмо для сброса пароля на {user.email}")
+            # Определяем базовый URL из запроса
+            base_url = str(request.base_url)
+            logger.info(f"FRONTEND_URL не задан, используем базовый URL из запроса: {base_url}")
+            
+            # Извлекаем протокол и хост
+            protocol = "http"
+            host = "localhost:8080"  # Значение по умолчанию
+            
+            if "://" in base_url:
+                protocol = base_url.split("://")[0]
+                host_part = base_url.split("://")[1]
+                if "/" in host_part:
+                    host = host_part.split("/")[0]
+                else:
+                    host = host_part
+            
+            # Если мы в локальном окружении, используем localhost:8080
+            if "localhost" in host or "127.0.0.1" in host:
+                reset_url = f"{protocol}://localhost:8080/reset-password/confirm?token={token}"
+            else:
+                # Иначе используем хост из запроса
+                reset_url = f"{protocol}://{host}/reset-password/confirm?token={token}"
+        
+        logger.info(f"Сформирован URL для сброса пароля: {reset_url}")
+        
+        # Отправляем email со ссылкой для сброса пароля
+        from ..services.smtp_service import send_password_reset_email
+        logger.info(f"Отправляем письмо на {user.email} с URL: {reset_url}")
+        success = send_password_reset_email(user.email, reset_url)
+        
+        if success:
+            logger.info(f"Письмо для сброса пароля успешно отправлено на {user.email}")
+            return {"message": "Инструкции по сбросу пароля отправлены на указанный email"}
+        else:
+            logger.error(f"Не удалось отправить письмо для сброса пароля на {user.email}")
+            # Если не удалось отправить письмо, инвалидируем созданный токен
+            reset_token.is_used = True
+            db.commit()
+            
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Не удалось отправить email. Пожалуйста, попробуйте позже."
+            )
+    except Exception as e:
+        # Откатываем транзакцию при любой ошибке
+        db.rollback()
+        logger.error(f"Ошибка при создании токена: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Не удалось отправить email. Пожалуйста, попробуйте позже."
+            detail=f"Ошибка при обработке запроса: {str(e)}"
         )
 
 @router.post("/reset-password/confirm")
@@ -243,17 +265,26 @@ async def confirm_password_reset(reset_data: PasswordReset, db: Session = Depend
             detail="Пароли не совпадают"
         )
     
-    # Проверяем токен
-    token_data = verify_reset_token(reset_data.token)
-    if not token_data:
-        logger.warning(f"Недействительный токен: {reset_data.token[:10]}...")
+    # Находим токен в базе данных
+    token_record = db.query(PasswordResetToken).filter(PasswordResetToken.token == reset_data.token).first()
+    
+    # Проверяем существование и валидность токена
+    if not token_record:
+        logger.warning(f"Токен не найден в базе данных: {reset_data.token[:10]}...")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Недействительная или истекшая ссылка для сброса пароля"
+        )
+    
+    if not token_record.is_valid():
+        logger.warning(f"Невалидный токен: использован={token_record.is_used}, истек={token_record.expires_at < datetime.utcnow()}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Недействительная или истекшая ссылка для сброса пароля"
         )
     
     # Получаем пользователя по ID из токена
-    user_id = token_data["user_id"]
+    user_id = token_record.user_id
     logger.info(f"Токен действителен для пользователя ID={user_id}")
     
     user = db.query(User).filter(User.id == user_id).first()
@@ -264,25 +295,25 @@ async def confirm_password_reset(reset_data: PasswordReset, db: Session = Depend
             detail="Пользователь не найден"
         )
     
-    # Проверяем, что email не изменился
-    if user.email != token_data["email"]:
-        logger.warning(f"Email пользователя ({user.email}) не совпадает с email в токене ({token_data['email']})")
+    # Проверяем, что email не изменился с момента создания токена
+    if user.email != token_record.email:
+        logger.warning(f"Email пользователя ({user.email}) не совпадает с email в токене ({token_record.email})")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email пользователя не совпадает с email в токене"
+            detail="Email пользователя изменился после запроса сброса пароля"
         )
     
     logger.info(f"Устанавливаем новый пароль для пользователя ID={user_id}")
-    # Обновляем пароль пользователя
-    user.password = get_password_hash(reset_data.password)
-    
     try:
+        # Обновляем пароль пользователя
+        user.password = get_password_hash(reset_data.password)
+        
+        # Инвалидируем токен
+        token_record.invalidate()
+        
         # Сохраняем изменения
         db.commit()
         logger.info(f"Пароль успешно обновлен для пользователя ID={user_id}")
-        
-        # Инвалидируем токен после использования
-        invalidate_token(reset_data.token)
         
         return {"message": "Пароль успешно изменен"}
     except Exception as e:

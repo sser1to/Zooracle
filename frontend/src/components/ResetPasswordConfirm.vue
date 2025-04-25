@@ -13,7 +13,13 @@
           minlength="6"
         />
         <span class="password-toggle" @click="togglePassword">
-          <i :class="showPassword ? 'eye-slash' : 'eye'"></i>
+          <!-- Заменяем i-элементы на SVG иконки -->
+          <svg v-if="showPassword" class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M12 4C7 4 2.73 7.11 1 12C2.73 16.89 7 20 12 20C17 20 21.27 16.89 23 12C21.27 7.11 17 4 12 4ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"/>
+          </svg>
+          <svg v-else class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M12 4C7 4 2.73 7.11 1 12C2.73 16.89 7 20 12 20C17 20 21.27 16.89 23 12C21.27 7.11 17 4 12 4ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z"/>
+          </svg>
         </span>
       </div>
       
@@ -26,7 +32,13 @@
           minlength="6"
         />
         <span class="password-toggle" @click="toggleConfirmPassword">
-          <i :class="showConfirmPassword ? 'eye-slash' : 'eye'"></i>
+          <!-- Заменяем i-элементы на SVG иконки -->
+          <svg v-if="showConfirmPassword" class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M12 4C7 4 2.73 7.11 1 12C2.73 16.89 7 20 12 20C17 20 21.27 16.89 23 12C21.27 7.11 17 4 12 4ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"/>
+          </svg>
+          <svg v-else class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M12 4C7 4 2.73 7.11 1 12C2.73 16.89 7 20 12 20C17 20 21.27 16.89 23 12C21.27 7.11 17 4 12 4ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z"/>
+          </svg>
         </span>
       </div>
       
@@ -46,16 +58,26 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, onBeforeMount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
 /**
  * Компонент для подтверждения сброса пароля по токену из email
+ * @description Позволяет пользователю установить новый пароль после восстановления
  */
 export default {
   name: 'ResetPasswordConfirm',
-  setup() {
+  
+  // Принимаем токен через пропсы (альтернативный способ получения)
+  props: {
+    token: {
+      type: String,
+      default: ''
+    }
+  },
+
+  setup(props) {
     const router = useRouter();
     const route = useRoute();
     
@@ -74,28 +96,59 @@ export default {
     });
 
     /**
-     * При загрузке компонента извлекаем токен из URL
+     * Получение токена перед монтированием компонента для избежания проблем с рендерингом
+     * @returns {void}
+     */
+    onBeforeMount(() => {
+      // Логирование для отладки
+      console.log('ResetPasswordConfirm: onBeforeMount вызван');
+      console.log('Токен из props:', props.token);
+      console.log('URL параметры:', route.query);
+
+      // Получаем токен из пропсов или из URL
+      if (props.token) {
+        token.value = props.token;
+        console.log('Токен получен из пропсов:', token.value);
+      } else if (route.query && route.query.token) {
+        token.value = route.query.token;
+        console.log('Токен получен из URL:', token.value);
+      } else {
+        console.warn('Токен не найден ни в пропсах, ни в URL');
+      }
+    });
+
+    /**
+     * При загрузке компонента проверяем наличие токена и отображаем ошибку при необходимости
+     * @returns {void}
      */
     onMounted(() => {
-      token.value = route.query.token;
+      console.log('ResetPasswordConfirm: onMounted вызван');
       
+      // Если токен всё ещё не получен, отображаем ошибку
       if (!token.value) {
         isError.value = true;
         message.value = 'Недействительная ссылка для сброса пароля. Отсутствует токен.';
+        console.error('Токен не был получен при монтировании компонента');
+      } else {
+        console.log('Компонент успешно смонтирован с токеном');
       }
     });
 
     /**
      * Отправка запроса на сброс пароля
+     * @async
+     * @returns {Promise<void>}
      */
     const resetPassword = async () => {
       try {
+        console.log('Начинается процесс сброса пароля');
         isLoading.value = true;
         isError.value = false;
         message.value = '';
         
         // Проверка наличия токена
         if (!token.value) {
+          console.error('Попытка сброса пароля без токена');
           isError.value = true;
           message.value = 'Недействительная ссылка для сброса пароля. Отсутствует токен.';
           return;
@@ -103,6 +156,7 @@ export default {
         
         // Проверка совпадения паролей на стороне клиента
         if (passwordData.password !== passwordData.confirm_password) {
+          console.warn('Пароли не совпадают');
           isError.value = true;
           message.value = 'Пароли не совпадают';
           return;
@@ -110,11 +164,13 @@ export default {
         
         // Проверка длины пароля
         if (passwordData.password.length < 6) {
+          console.warn('Пароль слишком короткий');
           isError.value = true;
           message.value = 'Пароль должен быть не менее 6 символов';
           return;
         }
         
+        console.log('Отправка запроса на сервер для сброса пароля');
         // Отправка запроса на API для сброса пароля
         await axios.post('/api/auth/reset-password/confirm', {
           token: token.value,
@@ -123,10 +179,12 @@ export default {
         });
         
         // Успешный сброс пароля
+        console.log('Пароль успешно сброшен');
         message.value = 'Пароль успешно изменен! Перенаправление на страницу входа...';
         
         // Добавляем задержку перед переадресацией
         setTimeout(() => {
+          console.log('Перенаправление на страницу входа');
           router.push('/login');
         }, 3000);
         
@@ -134,12 +192,12 @@ export default {
         isError.value = true;
         
         if (err.response && err.response.data) {
+          console.error('Ошибка ответа от сервера:', err.response.data);
           message.value = err.response.data.detail || 'Произошла ошибка при сбросе пароля';
         } else {
+          console.error('Общая ошибка:', err);
           message.value = 'Произошла ошибка при сбросе пароля. Проверьте подключение к сети.';
         }
-        
-        console.error('Ошибка при сбросе пароля:', err);
       } finally {
         isLoading.value = false;
       }
@@ -147,22 +205,28 @@ export default {
 
     /**
      * Переключение видимости пароля
+     * @returns {void}
      */
     const togglePassword = () => {
       showPassword.value = !showPassword.value;
+      console.log('Видимость пароля переключена:', showPassword.value);
     };
 
     /**
      * Переключение видимости подтверждения пароля
+     * @returns {void}
      */
     const toggleConfirmPassword = () => {
       showConfirmPassword.value = !showConfirmPassword.value;
+      console.log('Видимость подтверждения пароля переключена:', showConfirmPassword.value);
     };
 
     /**
      * Переход на страницу входа
+     * @returns {void}
      */
     const goToLogin = () => {
+      console.log('Переход на страницу входа');
       router.push('/login');
     };
 
@@ -188,6 +252,9 @@ export default {
   margin: 0 auto;
   padding: 20px;
   text-align: center;
+  background-color: #fff; /* Явно указываем белый фон контейнера */
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Добавляем тень для видимости на белом фоне */
 }
 
 .logo {
@@ -217,12 +284,11 @@ input {
   cursor: pointer;
 }
 
-.eye, .eye-slash {
-  display: inline-block;
+/* Стили для SVG иконок */
+.eye-icon {
   width: 20px;
   height: 20px;
-  background-color: #ccc;
-  border-radius: 50%;
+  fill: #666;
 }
 
 .btn-primary {
@@ -235,6 +301,11 @@ input {
   cursor: pointer;
   font-size: 16px;
   margin-bottom: 15px;
+  transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: #45a049;
 }
 
 .btn-primary:disabled {
@@ -253,15 +324,22 @@ input {
   font-size: 16px;
   text-decoration: none;
   display: inline-block;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.btn-secondary:hover {
+  background-color: #f1f8e9;
 }
 
 .error-message {
-  color: red;
+  color: #e53935;
   margin-top: 15px;
+  font-weight: 500;
 }
 
 .message {
-  color: green;
+  color: #43a047;
   margin-top: 15px;
+  font-weight: 500;
 }
 </style>

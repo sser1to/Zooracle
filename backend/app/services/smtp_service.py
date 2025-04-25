@@ -3,9 +3,7 @@ import smtplib
 import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
-import secrets
-from typing import Dict, Optional, Any
+from datetime import datetime
 
 # Настройка логирования
 logging.basicConfig(
@@ -26,82 +24,6 @@ SMTP_SENDER_NAME = os.getenv("SMTP_SENDER_NAME", "Zooracle")
 logger.info(f"SMTP настройки: Сервер={SMTP_SERVER}, Порт={SMTP_PORT}, Пользователь={SMTP_USERNAME}, Имя отправителя={SMTP_SENDER_NAME}")
 logger.info(f"Пароль задан: {'Да' if SMTP_PASSWORD else 'Нет'}")
 
-# Хранилище токенов для сброса пароля (в реальном проекте лучше хранить в БД)
-# формат: {token: {"user_id": id, "email": email, "expires": datetime}}
-reset_tokens: Dict[str, Dict[str, Any]] = {}
-
-def generate_password_reset_token(user_id: int, email: str) -> str:
-    """
-    Генерирует уникальный токен для сброса пароля и сохраняет его в хранилище
-    
-    Args:
-        user_id (int): ID пользователя
-        email (str): Email пользователя
-        
-    Returns:
-        str: Сгенерированный токен
-    """
-    # Генерируем токен из 32 случайных байт в URL-safe формате
-    token = secrets.token_urlsafe(32)
-    
-    # Устанавливаем срок действия токена (24 часа)
-    expires = datetime.utcnow() + timedelta(hours=24)
-    
-    # Сохраняем токен и связанные данные пользователя
-    reset_tokens[token] = {
-        "user_id": user_id,
-        "email": email,
-        "expires": expires
-    }
-    
-    logger.info(f"Создан токен сброса пароля для пользователя id={user_id}, email={email}. Действителен до {expires}")
-    
-    return token
-
-def verify_reset_token(token: str) -> Optional[Dict[str, Any]]:
-    """
-    Проверяет валидность токена для сброса пароля
-    
-    Args:
-        token (str): Токен для проверки
-        
-    Returns:
-        Optional[Dict[str, Any]]: Данные пользователя, если токен валидный, или None
-    """
-    # Проверяем существование токена
-    token_data = reset_tokens.get(token)
-    if not token_data:
-        logger.warning(f"Попытка использовать несуществующий токен: {token[:10]}...")
-        return None
-    
-    # Проверяем срок действия токена
-    if token_data["expires"] < datetime.utcnow():
-        # Удаляем просроченный токен
-        logger.warning(f"Попытка использовать просроченный токен для пользователя id={token_data['user_id']}")
-        del reset_tokens[token]
-        return None
-    
-    logger.info(f"Токен успешно проверен для пользователя id={token_data['user_id']}")
-    return token_data
-
-def invalidate_token(token: str) -> bool:
-    """
-    Инвалидирует токен после использования
-    
-    Args:
-        token (str): Токен для инвалидации
-        
-    Returns:
-        bool: True, если токен был успешно инвалидирован, иначе False
-    """
-    if token in reset_tokens:
-        user_id = reset_tokens[token].get('user_id')
-        del reset_tokens[token]
-        logger.info(f"Токен инвалидирован для пользователя id={user_id}")
-        return True
-    
-    logger.warning(f"Попытка инвалидировать несуществующий токен: {token[:10]}...")
-    return False
 
 def send_password_reset_email(email: str, reset_url: str) -> bool:
     """
@@ -278,6 +200,7 @@ def send_password_reset_email(email: str, reset_url: str) -> bool:
         logger.error(f"Ошибка при подготовке письма: {str(e)}", exc_info=True)
         return False
 
+
 # Проверка окружения при запуске модуля
 def check_environment():
     """
@@ -304,6 +227,7 @@ def check_environment():
         logger.warning("Функциональность восстановления пароля может быть недоступна")
     else:
         logger.info("SMTP-настройки успешно загружены")
+
 
 # Проверяем настройки SMTP при импорте модуля
 check_environment()
