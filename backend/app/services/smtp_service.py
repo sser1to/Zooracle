@@ -201,6 +201,162 @@ def send_password_reset_email(email: str, reset_url: str) -> bool:
         return False
 
 
+def send_email_verification_code(email: str, verification_code: str) -> bool:
+    """
+    Отправляет письмо с кодом подтверждения email
+    
+    Args:
+        email (str): Email получателя
+        verification_code (str): Код подтверждения
+        
+    Returns:
+        bool: True, если письмо успешно отправлено, иначе False
+    """
+    logger.info(f"Запрос на отправку письма с кодом верификации на {email}")
+    
+    # Проверка наличия настроек SMTP
+    if not SMTP_SERVER:
+        logger.error("Не задан SMTP сервер!")
+        return False
+    
+    if not SMTP_USERNAME:
+        logger.error("Не задано имя пользователя SMTP!")
+        return False
+    
+    if not SMTP_PASSWORD:
+        logger.error("Не задан пароль SMTP!")
+        return False
+    
+    try:
+        # Создаем объект сообщения
+        message = MIMEMultipart()
+        message["From"] = f"{SMTP_SENDER_NAME} <{SMTP_USERNAME}>"
+        message["To"] = email
+        message["Subject"] = "Подтверждение email в Zooracle"
+        
+        # Формируем HTML-текст письма с крупным кодом подтверждения
+        html = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                }}
+                .header {{
+                    text-align: center;
+                    padding-bottom: 10px;
+                    border-bottom: 1px solid #eee;
+                    margin-bottom: 20px;
+                }}
+                .verification-code {{
+                    font-size: 36px;
+                    font-weight: bold;
+                    letter-spacing: 5px;
+                    text-align: center;
+                    padding: 20px;
+                    background-color: #f5f5f5;
+                    border-radius: 5px;
+                    margin: 20px 0;
+                    color: #333;
+                }}
+                .footer {{
+                    margin-top: 30px;
+                    font-size: 12px;
+                    color: #777;
+                    text-align: center;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h2>Подтверждение email</h2>
+                </div>
+                <p>Здравствуйте!</p>
+                <p>Для завершения регистрации в приложении Zooracle необходимо подтвердить ваш email.</p>
+                <p>Ваш код подтверждения:</p>
+                
+                <div class="verification-code">
+                    {verification_code}
+                </div>
+                
+                <p>Введите этот код на странице подтверждения email.</p>
+                <p>Код действителен в течение 5 минут.</p>
+                <p>Если вы не регистрировались в Zooracle, проигнорируйте это письмо.</p>
+                
+                <div class="footer">
+                    <p>&copy; {datetime.now().year} Zooracle. Все права защищены.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Прикрепляем HTML-текст
+        message.attach(MIMEText(html, "html"))
+        
+        # Логирование попытки отправки письма
+        logger.info(f"Попытка отправить письмо на {email} через {SMTP_SERVER}:{SMTP_PORT}")
+        
+        try:
+            # Устанавливаем соединение с SMTP-сервером
+            logger.debug(f"Устанавливаем соединение с {SMTP_SERVER}:{SMTP_PORT}")
+            server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+            
+            # Включаем расширенное логирование для отладки
+            server.set_debuglevel(1)
+            
+            # Определяем поддерживаемые расширения SMTP
+            server.ehlo()
+            if server.has_extn('STARTTLS'):
+                logger.debug("Начинаем TLS шифрование")
+                server.starttls()  # Включаем шифрование
+                server.ehlo()  # Повторно представляемся после TLS
+            else:
+                logger.warning("Сервер не поддерживает STARTTLS!")
+            
+            # Проверка поддержки аутентификации
+            if server.has_extn('AUTH'):
+                logger.debug("Выполняем аутентификацию")
+                # Аутентификация
+                try:
+                    server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                    logger.info("Аутентификация успешна")
+                except smtplib.SMTPAuthenticationError as auth_err:
+                    logger.error(f"Ошибка аутентификации: {auth_err}")
+                    server.quit()
+                    return False
+            else:
+                logger.warning("Сервер не поддерживает аутентификацию!")
+            
+            # Отправляем письмо
+            logger.debug(f"Отправляем письмо от {message['From']} к {message['To']}")
+            server.send_message(message)
+            logger.info(f"Письмо с кодом верификации успешно отправлено на {email}")
+            
+            # Закрываем соединение
+            server.quit()
+            logger.debug("Соединение с SMTP-сервером закрыто")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка при отправке письма с кодом верификации: {str(e)}", exc_info=True)
+            return False
+            
+    except Exception as e:
+        logger.error(f"Ошибка при подготовке письма с кодом верификации: {str(e)}", exc_info=True)
+        return False
+
+
 # Проверка окружения при запуске модуля
 def check_environment():
     """
@@ -224,7 +380,7 @@ def check_environment():
         logger.warning("Обнаружены проблемы с SMTP-настройками:")
         for issue in issues:
             logger.warning(f" - {issue}")
-        logger.warning("Функциональность восстановления пароля может быть недоступна")
+        logger.warning("Функциональность восстановления пароля и верификации email может быть недоступна")
     else:
         logger.info("SMTP-настройки успешно загружены")
 

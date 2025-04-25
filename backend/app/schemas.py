@@ -28,6 +28,16 @@ class PasswordReset(BaseModel):
     confirm_password: str = Field(..., min_length=6)
 
 
+# Схемы для подтверждения email
+class EmailVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class EmailVerificationCode(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=6)
+
+
 # Схемы для пользователей
 class UserBase(BaseModel):
     login: str

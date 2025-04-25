@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 import logging
 import os
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -7,13 +7,32 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User, PasswordResetToken
-from ..schemas import UserCreate, Token, UserResponse, UserLogin, PasswordResetRequest, PasswordReset
+from ..schemas import (
+    UserCreate, 
+    Token, 
+    UserResponse, 
+    UserLogin, 
+    PasswordResetRequest, 
+    PasswordReset, 
+    EmailVerificationRequest,
+    EmailVerificationCode
+)
 from ..services.auth_service import (
     authenticate_user, 
     create_access_token, 
     get_password_hash, 
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
+from ..services.email_verification_service import (
+    create_verification_code,
+    verify_code
+)
+from ..services.user_registration_service import (
+    store_pending_user,
+    get_pending_user,
+    remove_pending_user
+)
+from ..services.smtp_service import send_email_verification_code
 
 # Настройка логирования
 logger = logging.getLogger("auth_router")
@@ -21,7 +40,7 @@ logger = logging.getLogger("auth_router")
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Регистрация нового пользователя в системе.
@@ -31,80 +50,82 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
         db (Session): Сессия базы данных
         
     Returns:
-        UserResponse: Информация о созданном пользователе
+        dict: Информация об успешной отправке кода верификации
         
     Raises:
         HTTPException: 400 - если пользователь с таким логином или email уже существует
     """
     try:
         # Логирование начала операции
-        print(f"Попытка регистрации пользователя с логином: {user_data.login} и email: {user_data.email}")
+        logger.info(f"Попытка регистрации пользователя с логином: {user_data.login} и email: {user_data.email}")
         
         # Проверка, существует ли пользователь с таким логином
         db_user = db.query(User).filter(User.login == user_data.login).first()
         if db_user:
-            print(f"Ошибка: пользователь с логином {user_data.login} уже существует")
+            logger.warning(f"Ошибка: пользователь с логином {user_data.login} уже существует")
             raise HTTPException(status_code=400, detail="Пользователь с таким логином уже существует")
         
         # Проверка, существует ли пользователь с таким email
         db_user = db.query(User).filter(User.email == user_data.email).first()
         if db_user:
-            print(f"Ошибка: пользователь с email {user_data.email} уже существует")
+            logger.warning(f"Ошибка: пользователь с email {user_data.email} уже существует")
             raise HTTPException(status_code=400, detail="Пользователь с такой почтой уже существует")
         
         # Валидация пароля
         if len(user_data.password) < 6:
-            print("Ошибка: пароль слишком короткий")
+            logger.warning("Ошибка: пароль слишком короткий")
             raise HTTPException(status_code=400, detail="Пароль должен быть не менее 6 символов")
 
         # Валидация email формата
         if "@" not in user_data.email or "." not in user_data.email:
-            print(f"Ошибка: некорректный формат email: {user_data.email}")
+            logger.warning(f"Ошибка: некорректный формат email: {user_data.email}")
             raise HTTPException(status_code=400, detail="Некорректный формат email")
             
-        # Создание нового пользователя
-        print("Хеширование пароля...")
+        # Хеширование пароля
+        logger.info("Хеширование пароля...")
         try:
             hashed_password = get_password_hash(user_data.password)
         except Exception as e:
-            print(f"Ошибка при хешировании пароля: {str(e)}")
+            logger.error(f"Ошибка при хешировании пароля: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Ошибка при обработке пароля: {str(e)}")
         
-        print("Создание объекта пользователя")
-        try:
-            db_user = User(
-                login=user_data.login,
-                email=user_data.email,
-                password=hashed_password,
-                is_admin=False  # По умолчанию пользователь не админ
-            )
-        except Exception as e:
-            print(f"Ошибка при создании объекта пользователя: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Ошибка при создании пользователя: {str(e)}")
+        # Сохраняем данные пользователя во временном хранилище
+        pending_user_data = {
+            "login": user_data.login,
+            "email": user_data.email,
+            "password": hashed_password,
+            "is_admin": False
+        }
         
-        try:
-            print("Добавление пользователя в БД")
-            db.add(db_user)
-            
-            print("Выполнение коммита...")
-            db.commit()
-            
-            print("Обновление данных пользователя...")
-            db.refresh(db_user)
-            
-            print(f"Пользователь {user_data.login} успешно зарегистрирован")
-            return db_user
-        except Exception as e:
-            print(f"Ошибка при сохранении пользователя в БД: {str(e)}")
-            db.rollback()  # Откатываем изменения в случае ошибки
-            raise HTTPException(status_code=500, detail=f"Ошибка при сохранении пользователя: {str(e)}")
+        # Сохраняем данные во временное хранилище
+        logger.info(f"Сохранение данных пользователя {user_data.login} во временное хранилище")
+        store_pending_user(user_data.email, pending_user_data)
+        
+        # Генерируем код верификации для email
+        verification_code = create_verification_code(user_data.email)
+        
+        # Отправляем код на email пользователя
+        email_sent = send_email_verification_code(user_data.email, verification_code)
+        
+        if not email_sent:
+            logger.warning(f"Не удалось отправить код верификации на {user_data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Не удалось отправить код подтверждения. Пожалуйста, попробуйте позже."
+            )
+        
+        logger.info(f"Данные пользователя {user_data.login} сохранены для верификации email")
+        return {
+            "message": "На указанный email отправлен код подтверждения",
+            "email": user_data.email
+        }
             
     except HTTPException:
         # Пробрасываем HTTPException дальше
         raise
     except Exception as e:
         # Логируем и обрабатываем все остальные исключения
-        print(f"Непредвиденная ошибка при регистрации пользователя: {str(e)}")
+        logger.error(f"Непредвиденная ошибка при регистрации пользователя: {str(e)}")
         raise HTTPException(
             status_code=500, 
             detail=f"Ошибка при регистрации пользователя: {str(e)}"
@@ -136,242 +157,116 @@ async def login_for_access_token(form_data: UserLogin, db: Session = Depends(get
     }
 
 
-@router.post("/reset-password/request")
-async def request_password_reset(request: Request, reset_data: PasswordResetRequest, db: Session = Depends(get_db)):
+@router.post("/verify-email/request")
+async def request_email_verification(verification_data: EmailVerificationRequest):
     """
-    Обработка запроса на сброс пароля.
+    Запрашивает отправку кода верификации email.
     
     Args:
-        request (Request): Объект запроса FastAPI
-        reset_data (PasswordResetRequest): Email пользователя
-        db (Session): Сессия базы данных
-        
+        verification_data (EmailVerificationRequest): Email для верификации
+    
     Returns:
         dict: Сообщение о результате операции
     """
-    # Логирование запроса
-    logger.info(f"Получен запрос на восстановление пароля для email: {reset_data.email}")
+    logger.info(f"Запрос на верификацию email: {verification_data.email}")
     
-    # Находим пользователя в базе по email
-    user = db.query(User).filter(User.email == reset_data.email).first()
+    # Проверяем наличие временных данных для этого email
+    pending_user = get_pending_user(verification_data.email)
     
-    # Даже если пользователь не найден, не сообщаем об этом для безопасности
-    if not user:
-        logger.warning(f"Пользователь с email {reset_data.email} не найден в базе")
-        return {"message": "Если пользователь с указанным email существует, на него отправлены инструкции по сбросу пароля"}
+    # Для безопасности не раскрываем, существуют ли такие данные
+    if not pending_user:
+        logger.warning(f"Запрос верификации для несуществующего email в ожидающих регистрацию: {verification_data.email}")
+        return {"message": "Если указанный email существует и не подтвержден, код подтверждения был отправлен"}
     
-    logger.info(f"Пользователь с ID={user.id} найден для email {reset_data.email}")
+    # Генерируем новый код верификации
+    verification_code = create_verification_code(verification_data.email)
     
-    try:
-        # Инвалидируем все предыдущие токены для этого пользователя
-        old_tokens = db.query(PasswordResetToken).filter(
-            PasswordResetToken.user_id == user.id, 
-            PasswordResetToken.is_used == False
-        ).all()
-        
-        for old_token in old_tokens:
-            old_token.is_used = True
-        
-        # Создаем новый токен для сброса пароля
-        reset_token = PasswordResetToken.generate(user_id=user.id, email=user.email)
-        db.add(reset_token)
-        db.commit()
-        
-        token = reset_token.token
-        logger.info(f"Создан новый токен сброса пароля для пользователя ID={user.id}")
-        
-        # Формируем URL для сброса пароля
-        # Сначала пытаемся использовать FRONTEND_URL из переменных окружения
-        frontend_url = os.getenv("FRONTEND_URL")
-        if frontend_url:
-            # Удаляем завершающий слеш, если он есть
-            if frontend_url.endswith('/'):
-                frontend_url = frontend_url[:-1]
-            
-            logger.info(f"Используем FRONTEND_URL из окружения: {frontend_url}")
-            reset_url = f"{frontend_url}/reset-password/confirm?token={token}"
-        else:
-            # Определяем базовый URL из запроса
-            base_url = str(request.base_url)
-            logger.info(f"FRONTEND_URL не задан, используем базовый URL из запроса: {base_url}")
-            
-            # Извлекаем протокол и хост
-            protocol = "http"
-            host = "localhost:8080"  # Значение по умолчанию
-            
-            if "://" in base_url:
-                protocol = base_url.split("://")[0]
-                host_part = base_url.split("://")[1]
-                if "/" in host_part:
-                    host = host_part.split("/")[0]
-                else:
-                    host = host_part
-            
-            # Если мы в локальном окружении, используем localhost:8080
-            if "localhost" in host or "127.0.0.1" in host:
-                reset_url = f"{protocol}://localhost:8080/reset-password/confirm?token={token}"
-            else:
-                # Иначе используем хост из запроса
-                reset_url = f"{protocol}://{host}/reset-password/confirm?token={token}"
-        
-        logger.info(f"Сформирован URL для сброса пароля: {reset_url}")
-        
-        # Отправляем email со ссылкой для сброса пароля
-        from ..services.smtp_service import send_password_reset_email
-        logger.info(f"Отправляем письмо на {user.email} с URL: {reset_url}")
-        success = send_password_reset_email(user.email, reset_url)
-        
-        if success:
-            logger.info(f"Письмо для сброса пароля успешно отправлено на {user.email}")
-            return {"message": "Инструкции по сбросу пароля отправлены на указанный email"}
-        else:
-            logger.error(f"Не удалось отправить письмо для сброса пароля на {user.email}")
-            # Если не удалось отправить письмо, инвалидируем созданный токен
-            reset_token.is_used = True
-            db.commit()
-            
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Не удалось отправить email. Пожалуйста, попробуйте позже."
-            )
-    except Exception as e:
-        # Откатываем транзакцию при любой ошибке
-        db.rollback()
-        logger.error(f"Ошибка при создании токена: {str(e)}")
+    # Отправляем код на указанный email
+    email_sent = send_email_verification_code(verification_data.email, verification_code)
+    
+    if email_sent:
+        logger.info(f"Код верификации успешно отправлен на {verification_data.email}")
+        return {"message": "Код подтверждения отправлен на указанный email"}
+    else:
+        logger.error(f"Не удалось отправить код верификации на {verification_data.email}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при обработке запроса: {str(e)}"
+            detail="Не удалось отправить код подтверждения. Пожалуйста, попробуйте позже."
         )
 
-@router.post("/reset-password/confirm")
-async def confirm_password_reset(reset_data: PasswordReset, db: Session = Depends(get_db)):
+
+@router.post("/verify-email/confirm", response_model=Token)
+async def confirm_email(verification_data: EmailVerificationCode, db: Session = Depends(get_db)):
     """
-    Подтверждение сброса пароля и установка нового пароля.
+    Подтверждает email с помощью кода верификации и создает пользователя в базе данных.
     
     Args:
-        reset_data (PasswordReset): Токен и новый пароль
+        verification_data (EmailVerificationCode): Email и код верификации
         db (Session): Сессия базы данных
-        
+    
     Returns:
-        dict: Сообщение о результате операции
+        Token: Токен доступа для авторизации
     """
-    logger.info(f"Получен запрос на подтверждение сброса пароля с токеном: {reset_data.token[:10]}...")
+    logger.info(f"Попытка подтверждения email: {verification_data.email}")
     
-    # Проверяем совпадение паролей
-    if reset_data.password != reset_data.confirm_password:
-        logger.warning("Пароли не совпадают при попытке сброса пароля")
+    # Проверяем корректность кода верификации
+    is_verified = verify_code(verification_data.email, verification_data.code)
+    
+    if not is_verified:
+        logger.warning(f"Неверный код верификации для {verification_data.email}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Пароли не совпадают"
+            detail="Неверный код подтверждения"
         )
     
-    # Находим токен в базе данных
-    token_record = db.query(PasswordResetToken).filter(PasswordResetToken.token == reset_data.token).first()
-    
-    # Проверяем существование и валидность токена
-    if not token_record:
-        logger.warning(f"Токен не найден в базе данных: {reset_data.token[:10]}...")
+    # Получаем временные данные пользователя
+    pending_user = get_pending_user(verification_data.email)
+    if not pending_user:
+        logger.warning(f"Временные данные пользователя не найдены для {verification_data.email}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Недействительная или истекшая ссылка для сброса пароля"
+            detail="Данные для регистрации не найдены или срок действия истек. Пройдите регистрацию повторно."
         )
     
-    if not token_record.is_valid():
-        logger.warning(f"Невалидный токен: использован={token_record.is_used}, истек={token_record.expires_at < datetime.utcnow()}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Недействительная или истекшая ссылка для сброса пароля"
-        )
-    
-    # Получаем пользователя по ID из токена
-    user_id = token_record.user_id
-    logger.info(f"Токен действителен для пользователя ID={user_id}")
-    
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        logger.error(f"Пользователь с ID={user_id} не найден в БД")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Пользователь не найден"
-        )
-    
-    # Проверяем, что email не изменился с момента создания токена
-    if user.email != token_record.email:
-        logger.warning(f"Email пользователя ({user.email}) не совпадает с email в токене ({token_record.email})")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email пользователя изменился после запроса сброса пароля"
-        )
-    
-    logger.info(f"Устанавливаем новый пароль для пользователя ID={user_id}")
+    # Создаем пользователя в базе данных
     try:
-        # Обновляем пароль пользователя
-        user.password = get_password_hash(reset_data.password)
+        # Создаем объект пользователя
+        db_user = User(
+            login=pending_user["login"],
+            email=pending_user["email"],
+            password=pending_user["password"],
+            is_admin=pending_user["is_admin"]
+        )
         
-        # Инвалидируем токен
-        token_record.invalidate()
-        
-        # Сохраняем изменения
+        logger.info(f"Создание пользователя в БД: {pending_user['login']}")
+        db.add(db_user)
         db.commit()
-        logger.info(f"Пароль успешно обновлен для пользователя ID={user_id}")
+        db.refresh(db_user)
         
-        return {"message": "Пароль успешно изменен"}
+        # Удаляем временные данные
+        remove_pending_user(verification_data.email)
+        
+        # Генерируем токен доступа для автоматического входа
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": db_user.login}, expires_delta=access_token_expires
+        )
+        
+        logger.info(f"Пользователь {db_user.login} успешно создан после подтверждения email")
+        
+        # Возвращаем токен доступа для автоматического входа
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user_id": db_user.id,
+            "login": db_user.login,
+            "email": db_user.email,
+            "is_admin": db_user.is_admin
+        }
     except Exception as e:
         db.rollback()
-        logger.error(f"Ошибка при изменении пароля: {str(e)}")
+        logger.error(f"Ошибка при создании пользователя: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при изменении пароля: {str(e)}"
+            detail=f"Ошибка при создании пользователя: {str(e)}"
         )
-
-
-@router.get("/reset-password/validate-token/{token}")
-async def validate_reset_token(token: str, db: Session = Depends(get_db)):
-    """
-    Проверка валидности токена для сброса пароля.
-    
-    Args:
-        token (str): Токен для проверки
-        db (Session): Сессия базы данных
-        
-    Returns:
-        dict: Статус валидности токена
-    """
-    logger.info(f"Проверка валидности токена для сброса пароля: {token[:10]}...")
-    
-    # Находим токен в базе данных
-    from datetime import datetime
-    token_record = db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()
-    
-    # Проверяем существование токена
-    if not token_record:
-        logger.warning(f"Токен не найден в базе данных: {token[:10]}...")
-        return {"valid": False, "reason": "token_not_found"}
-    
-    # Проверяем валидность токена
-    is_valid = token_record.is_valid()
-    
-    if not is_valid:
-        if token_record.is_used:
-            logger.warning(f"Токен уже использован: {token[:10]}...")
-            return {"valid": False, "reason": "token_used"}
-        elif token_record.expires_at < datetime.utcnow():
-            logger.warning(f"Срок действия токена истек: {token[:10]}...")
-            return {"valid": False, "reason": "token_expired"}
-        else:
-            logger.warning(f"Токен невалиден по другой причине: {token[:10]}...")
-            return {"valid": False, "reason": "token_invalid"}
-    
-    # Проверяем, что пользователь существует
-    user = db.query(User).filter(User.id == token_record.user_id).first()
-    if not user:
-        logger.warning(f"Пользователь не найден для токена: {token[:10]}...")
-        return {"valid": False, "reason": "user_not_found"}
-    
-    # Проверяем, что email не изменился
-    if user.email != token_record.email:
-        logger.warning(f"Email пользователя изменился: {token[:10]}...")
-        return {"valid": False, "reason": "email_changed"}
-    
-    logger.info(f"Токен валиден: {token[:10]}...")
-    return {"valid": True}

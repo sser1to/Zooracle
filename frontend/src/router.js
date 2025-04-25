@@ -3,6 +3,7 @@ import LoginForm from './components/Login.vue';
 import RegisterForm from './components/Register.vue';
 import ResetPasswordForm from './components/ResetPassword.vue';
 import ResetPasswordConfirmForm from './components/ResetPasswordConfirm.vue';
+import EmailVerification from './components/EmailVerification.vue';
 import authService from './services/auth';
 
 /**
@@ -42,6 +43,15 @@ const routes = [
     // Передаем query параметры в качестве пропсов компонента
     props: (route) => ({ token: route.query.token }),
     meta: { requiresAuth: false, title: 'Установка нового пароля - Zooracle' }
+  },
+  
+  // Маршрут страницы подтверждения email
+  {
+    path: '/verify-email/:email',
+    name: 'verify-email',
+    component: EmailVerification,
+    props: true,
+    meta: { requiresAuth: false, title: 'Подтверждение email - Zooracle' }
   },
   
   // Альтернативный маршрут для ссылок восстановления пароля с токеном в разных форматах

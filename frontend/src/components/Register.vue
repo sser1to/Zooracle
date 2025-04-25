@@ -48,7 +48,7 @@
         />
         <span class="password-toggle" @click="toggleConfirmPassword">
           <svg v-if="showConfirmPassword" class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path d="M12 4C7 4 2.73 7.11 1 12C2.73 16.89 7 20 12 20C17 20 21.27 16.89 23 12C21.27 7.11 17 4 12 4ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"/>
+            <path d="M12 4C7 4 2.73 7.11 1 12C2.73 16.89 7 20 12 20C17 20 21.27 16.89 23 12C21.27 7.11 17 4 12 4ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z"/>
           </svg>
           <svg v-else class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
             <path d="M12 4C7 4 2.73 7.11 1 12C2.73 16.89 7 20 12 20C17 20 21.27 16.89 23 12C21.27 7.11 17 4 12 4ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z"/>
@@ -66,6 +66,10 @@
     <div v-if="error" class="error-message">
       {{ error }}
     </div>
+    
+    <div v-if="isLoading" class="loading-spinner">
+      <div class="spinner"></div>
+    </div>
   </div>
 </template>
 
@@ -81,12 +85,32 @@ export default {
     const error = ref('');
     const showPassword = ref(false);
     const showConfirmPassword = ref(false);
+    const isLoading = ref(false);
     const registerData = reactive({
       login: '',
       email: '',
       password: '',
       confirmPassword: ''
     });
+
+    /**
+     * Сбрасывает форму к начальному состоянию
+     * Очищает все поля ввода и возвращает индикаторы видимости паролей в исходное состояние
+     */
+    const resetForm = () => {
+      // Очищаем все поля формы
+      registerData.login = '';
+      registerData.email = '';
+      registerData.password = '';
+      registerData.confirmPassword = '';
+      
+      // Сбрасываем видимость паролей
+      showPassword.value = false;
+      showConfirmPassword.value = false;
+      
+      // Очищаем сообщение об ошибке
+      error.value = '';
+    };
 
     const register = async () => {
       try {
@@ -123,8 +147,8 @@ export default {
           return;
         }
         
-        // Информируем пользователя о начале процесса
-        error.value = 'Выполняется регистрация...';
+        // Показываем индикатор загрузки
+        isLoading.value = true;
         
         console.log('Отправка запроса на регистрацию:', { 
           login: registerData.login, 
@@ -140,14 +164,14 @@ export default {
         console.log('Ответ от сервера:', result);
         
         if (result) {
-          // При успешной регистрации даем положительное сообщение перед переходом
-          error.value = 'Регистрация успешна! Перенаправление на страницу входа...';
-          error.value = ''; // Очищаем сообщение об ошибке
+          // Сбрасываем форму к начальному состоянию
+          resetForm();
           
-          // Добавляем небольшую задержку, чтобы пользователь увидел сообщение об успехе
-          setTimeout(() => {
-            router.push('/login');
-          }, 1000);
+          // После успешной регистрации перенаправляем на страницу верификации email
+          router.push({
+            name: 'verify-email',
+            params: { email: result.email || registerData.email }
+          });
         }
       } catch (err) {
         console.error('Ошибка при регистрации:', err);
@@ -218,6 +242,9 @@ export default {
           console.error('Ошибка запроса:', err.message);
           error.value = `Ошибка запроса: ${err.message}`;
         }
+      } finally {
+        // Убираем индикатор загрузки
+        isLoading.value = false;
       }
     };
 
@@ -230,6 +257,8 @@ export default {
     };
 
     const goBack = () => {
+      // Сбрасываем форму перед возвратом на страницу логина
+      resetForm();
       router.push('/login');
     };
 
@@ -239,9 +268,11 @@ export default {
       register,
       showPassword,
       showConfirmPassword,
+      isLoading,
       togglePassword,
       toggleConfirmPassword,
-      goBack
+      goBack,
+      resetForm
     };
   }
 }
@@ -256,6 +287,7 @@ export default {
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .logo {
@@ -335,5 +367,34 @@ input {
 
 .auth-footer {
   margin-top: 5px; /* Уменьшаем отступ сверху с 15px до 5px */
+}
+
+/* Стили для индикатора загрузки */
+.loading-spinner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #4CAF50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

@@ -55,6 +55,10 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Экспортируем настроенный экземпляр для прямого использования HTTP методов
+export const api = apiClient;
+
+// Экспортируем объект с дополнительными вспомогательными методами
 export default {
   /**
    * Метод для проверки статуса подключения к БД
@@ -88,5 +92,44 @@ export default {
         message: 'Не удалось получить статус API'
       };
     }
+  },
+
+  /**
+   * Метод для отправки HTTP POST запросов
+   * @param {string} url - URL эндпоинта
+   * @param {Object} data - Данные для отправки
+   * @returns {Promise<Object>} Ответ от сервера
+   */
+  post(url, data) {
+    return apiClient.post(url, data);
+  },
+
+  /**
+   * Метод для отправки HTTP GET запросов
+   * @param {string} url - URL эндпоинта
+   * @param {Object} params - Параметры запроса
+   * @returns {Promise<Object>} Ответ от сервера
+   */
+  get(url, params) {
+    return apiClient.get(url, { params });
+  },
+
+  /**
+   * Метод для отправки HTTP PUT запросов
+   * @param {string} url - URL эндпоинта
+   * @param {Object} data - Данные для отправки
+   * @returns {Promise<Object>} Ответ от сервера
+   */
+  put(url, data) {
+    return apiClient.put(url, data);
+  },
+
+  /**
+   * Метод для отправки HTTP DELETE запросов
+   * @param {string} url - URL эндпоинта
+   * @returns {Promise<Object>} Ответ от сервера
+   */
+  delete(url) {
+    return apiClient.delete(url);
   }
 };
