@@ -17,6 +17,17 @@ class Token(BaseModel):
     is_admin: bool
 
 
+# Схемы для сброса пароля
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordReset(BaseModel):
+    token: str
+    password: str = Field(..., min_length=6)
+    confirm_password: str = Field(..., min_length=6)
+
+
 # Схемы для пользователей
 class UserBase(BaseModel):
     login: str

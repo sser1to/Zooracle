@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import LoginForm from './components/Login.vue';
 import RegisterForm from './components/Register.vue';
 import ResetPasswordForm from './components/ResetPassword.vue';
+import ResetPasswordConfirmForm from './components/ResetPasswordConfirm.vue';
 import authService from './services/auth';
 
 const routes = [
@@ -21,6 +22,12 @@ const routes = [
     path: '/reset-password',
     name: 'reset-password',
     component: ResetPasswordForm,
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/reset-password/confirm',
+    name: 'reset-password-confirm',
+    component: ResetPasswordConfirmForm,
     meta: { requiresAuth: false }
   },
   {

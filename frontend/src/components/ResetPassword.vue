@@ -13,7 +13,9 @@
         />
       </div>
       
-      <button type="submit" class="btn-primary">Отправить</button>
+      <button type="submit" class="btn-primary" :disabled="isLoading">
+        {{ isLoading ? 'Отправка...' : 'Отправить' }}
+      </button>
     </form>
     
     <div class="auth-footer">
@@ -29,7 +31,11 @@
 <script>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from 'axios';
 
+/**
+ * Компонент для запроса восстановления пароля
+ */
 export default {
   name: 'ResetPasswordForm',
   setup() {
@@ -37,23 +43,50 @@ export default {
     const email = ref('');
     const message = ref('');
     const isError = ref(false);
+    const isLoading = ref(false);
 
+    /**
+     * Отправляет запрос на сброс пароля
+     */
     const sendResetEmail = async () => {
       try {
+        isLoading.value = true;
         isError.value = false;
         message.value = '';
         
-        // В реальном проекте здесь будет API-запрос на отправку инструкций по восстановлению
-        // Сейчас просто имитируем успешную отправку
-        // await authService.resetPassword(email.value);
+        // Проверка формата email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.value)) {
+          isError.value = true;
+          message.value = 'Пожалуйста, введите корректный email-адрес';
+          return;
+        }
         
+        // Отправляем запрос на API для сброса пароля
+        await axios.post('/api/auth/reset-password/request', { 
+          email: email.value 
+        });
+        
+        // Успешная отправка
         message.value = 'Инструкции по восстановлению пароля отправлены на вашу почту';
       } catch (err) {
         isError.value = true;
-        message.value = err.response?.data?.detail || 'Ошибка при отправке инструкций по восстановлению';
+        
+        if (err.response && err.response.data) {
+          message.value = err.response.data.detail || 'Ошибка при отправке запроса на восстановление пароля';
+        } else {
+          message.value = 'Произошла ошибка при отправке запроса. Проверьте подключение к сети.';
+        }
+        
+        console.error('Ошибка при отправке запроса на восстановление пароля:', err);
+      } finally {
+        isLoading.value = false;
       }
     };
 
+    /**
+     * Возврат на предыдущую страницу
+     */
     const goBack = () => {
       router.push('/login');
     };
@@ -62,6 +95,7 @@ export default {
       email,
       message,
       isError,
+      isLoading,
       sendResetEmail,
       goBack
     };
@@ -106,6 +140,11 @@ input {
   cursor: pointer;
   font-size: 16px;
   margin-bottom: 15px;
+}
+
+.btn-primary:disabled {
+  background-color: #a5d6a7;
+  cursor: not-allowed;
 }
 
 .btn-secondary {

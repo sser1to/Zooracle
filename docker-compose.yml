@@ -60,6 +60,14 @@ services:
       - MINIO_PORT=9000
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      # SMTP настройки для восстановления пароля
+      - SMTP_SERVER=${SMTP_SERVER}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_SENDER_NAME=${SMTP_SENDER_NAME}
+      # Используем публичный URL для доступа к фронтенду
+      - FRONTEND_URL=http://localhost:${FRONTEND_PORT}
     networks:
       - app-network
 
