@@ -323,3 +323,55 @@ async def confirm_password_reset(reset_data: PasswordReset, db: Session = Depend
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка при изменении пароля: {str(e)}"
         )
+
+
+@router.get("/reset-password/validate-token/{token}")
+async def validate_reset_token(token: str, db: Session = Depends(get_db)):
+    """
+    Проверка валидности токена для сброса пароля.
+    
+    Args:
+        token (str): Токен для проверки
+        db (Session): Сессия базы данных
+        
+    Returns:
+        dict: Статус валидности токена
+    """
+    logger.info(f"Проверка валидности токена для сброса пароля: {token[:10]}...")
+    
+    # Находим токен в базе данных
+    from datetime import datetime
+    token_record = db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()
+    
+    # Проверяем существование токена
+    if not token_record:
+        logger.warning(f"Токен не найден в базе данных: {token[:10]}...")
+        return {"valid": False, "reason": "token_not_found"}
+    
+    # Проверяем валидность токена
+    is_valid = token_record.is_valid()
+    
+    if not is_valid:
+        if token_record.is_used:
+            logger.warning(f"Токен уже использован: {token[:10]}...")
+            return {"valid": False, "reason": "token_used"}
+        elif token_record.expires_at < datetime.utcnow():
+            logger.warning(f"Срок действия токена истек: {token[:10]}...")
+            return {"valid": False, "reason": "token_expired"}
+        else:
+            logger.warning(f"Токен невалиден по другой причине: {token[:10]}...")
+            return {"valid": False, "reason": "token_invalid"}
+    
+    # Проверяем, что пользователь существует
+    user = db.query(User).filter(User.id == token_record.user_id).first()
+    if not user:
+        logger.warning(f"Пользователь не найден для токена: {token[:10]}...")
+        return {"valid": False, "reason": "user_not_found"}
+    
+    # Проверяем, что email не изменился
+    if user.email != token_record.email:
+        logger.warning(f"Email пользователя изменился: {token[:10]}...")
+        return {"valid": False, "reason": "email_changed"}
+    
+    logger.info(f"Токен валиден: {token[:10]}...")
+    return {"valid": True}
