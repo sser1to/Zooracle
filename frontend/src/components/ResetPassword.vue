@@ -35,6 +35,7 @@ import axios from 'axios';
 
 /**
  * Компонент для запроса восстановления пароля
+ * @description Позволяет пользователю запросить восстановление пароля через email
  */
 export default {
   name: 'ResetPasswordForm',
@@ -47,6 +48,8 @@ export default {
 
     /**
      * Отправляет запрос на сброс пароля
+     * @async
+     * @returns {Promise<void>}
      */
     const sendResetEmail = async () => {
       try {
@@ -61,6 +64,8 @@ export default {
           message.value = 'Пожалуйста, введите корректный email-адрес';
           return;
         }
+        
+        console.log('Отправка запроса на восстановление пароля:', email.value);
         
         // Отправляем запрос на API для сброса пароля
         await axios.post('/api/auth/reset-password/request', { 
@@ -86,6 +91,7 @@ export default {
 
     /**
      * Возврат на предыдущую страницу
+     * @returns {void}
      */
     const goBack = () => {
       router.push('/login');
@@ -109,6 +115,9 @@ export default {
   margin: 0 auto;
   padding: 20px;
   text-align: center;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .logo {
@@ -140,6 +149,11 @@ input {
   cursor: pointer;
   font-size: 16px;
   margin-bottom: 15px;
+  transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: #45a049;
 }
 
 .btn-primary:disabled {
@@ -158,15 +172,22 @@ input {
   font-size: 16px;
   text-decoration: none;
   display: inline-block;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.btn-secondary:hover {
+  background-color: #f1f8e9;
 }
 
 .error-message {
-  color: red;
+  color: #e53935;
   margin-top: 15px;
+  font-weight: 500;
 }
 
 .message {
-  color: green;
+  color: #43a047;
   margin-top: 15px;
+  font-weight: 500;
 }
 </style>
