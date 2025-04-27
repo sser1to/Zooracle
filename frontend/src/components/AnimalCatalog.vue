@@ -116,7 +116,7 @@
       <p>Ничего не найдено. Попробуйте изменить параметры поиска.</p>
     </div>
 
-    <!-- Каталог животных -->
+    <!-- Каталог животных (с прокруткой) -->
     <div v-if="!loading && !error && animals.length > 0" class="animals-grid">
       <div v-for="animal in animals" :key="animal.id" class="animal-card">
         <div class="animal-image">
@@ -141,31 +141,13 @@
         </button>
       </div>
     </div>
-
-    <!-- Пагинация -->
-    <div v-if="!loading && !error && totalPages > 1" class="pagination">
-      <button 
-        @click="prevPage" 
-        :disabled="currentPage === 1" 
-        class="pagination-button"
-      >
-        &laquo; Назад
-      </button>
-      <span class="page-info">Страница {{ currentPage }} из {{ totalPages }}</span>
-      <button 
-        @click="nextPage" 
-        :disabled="currentPage === totalPages" 
-        class="pagination-button"
-      >
-        Вперед &raquo;
-      </button>
-    </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
+import { useRoute } from 'vue-router';
 
 /**
  * Компонент каталога животных
@@ -184,6 +166,9 @@ export default {
     const error = ref('');
     const apiBase = 'http://localhost:8000/api';
     const isAdmin = ref(false);  // Статус администратора
+    const route = useRoute();
+    let refreshInterval = null;
+    let authListener = null; // Слушатель событий авторизации
     
     // Параметры фильтрации
     const searchQuery = ref('');
@@ -192,11 +177,6 @@ export default {
     const sortBy = ref('name');
     const sortOrder = ref('asc');
     const showFavorites = ref(false);
-    
-    // Пагинация
-    const currentPage = ref(1);
-    const pageSize = 10;  // Количество элементов на странице
-    const totalItems = ref(0);
     
     // Состояние UI
     const activeDropdown = ref(null);
@@ -208,14 +188,6 @@ export default {
       { value: 'id_asc', label: 'Сначала старые' },
       { value: 'id_desc', label: 'Сначала новые' },
     ];
-    
-    /**
-     * Вычисляемое свойство для общего количества страниц
-     * @returns {number} Количество страниц
-     */
-    const totalPages = computed(() => {
-      return Math.ceil(totalItems.value / pageSize);
-    });
     
     /**
      * Проверяет, добавлено ли животное в избранное
@@ -248,6 +220,7 @@ export default {
     
     /**
      * Загружает данные о животных с применением всех фильтров
+     * @async
      */
     const loadAnimals = async () => {
       try {
@@ -259,13 +232,10 @@ export default {
           ? sortBy.value.split('_') 
           : [sortBy.value, sortOrder.value];
         
-        // Вычисляем смещение для пагинации
-        const skip = (currentPage.value - 1) * pageSize;
-        
         // Формируем параметры запроса
         const params = {
-          skip,
-          limit: pageSize,
+          skip: 0,
+          limit: 10000, // Большой лимит для получения всех записей
           sort_by: sortField,
           sort_order: sortDirection,
           favorites_only: showFavorites.value
@@ -280,7 +250,6 @@ export default {
         const response = await axios.get(`${apiBase}/animals/`, { params });
         
         animals.value = response.data;
-        totalItems.value = response.data.length; // В идеале API должен возвращать общее количество
         
       } catch (err) {
         console.error('Ошибка при загрузке животных:', err);
@@ -292,6 +261,7 @@ export default {
     
     /**
      * Загружает справочные данные (типы животных, ареалы обитания)
+     * @async
      */
     const loadReferenceData = async () => {
       try {
@@ -311,6 +281,7 @@ export default {
     
     /**
      * Загружает избранные животные пользователя
+     * @async
      */
     const loadFavorites = async () => {
       try {
@@ -324,6 +295,7 @@ export default {
     
     /**
      * Переключает статус избранного для животного
+     * @async
      * @param {Object} animal - Объект с данными о животном
      */
     const toggleFavorite = async (animal) => {
@@ -354,7 +326,6 @@ export default {
       return () => {
         clearTimeout(timeout);
         timeout = setTimeout(() => {
-          currentPage.value = 1; // Сбрасываем страницу на первую при поиске
           loadAnimals();
         }, 500); // Задержка 500 мс
       };
@@ -385,7 +356,6 @@ export default {
     const selectClass = (classId) => {
       selectedClassId.value = classId === selectedClassId.value ? null : classId;
       activeDropdown.value = null;
-      currentPage.value = 1;
       loadAnimals();
     };
     
@@ -396,7 +366,6 @@ export default {
     const selectHabitat = (habitatId) => {
       selectedHabitatId.value = habitatId === selectedHabitatId.value ? null : habitatId;
       activeDropdown.value = null;
-      currentPage.value = 1;
       loadAnimals();
     };
     
@@ -430,26 +399,6 @@ export default {
     };
     
     /**
-     * Переход на предыдущую страницу
-     */
-    const prevPage = () => {
-      if (currentPage.value > 1) {
-        currentPage.value--;
-        loadAnimals();
-      }
-    };
-    
-    /**
-     * Переход на следующую страницу
-     */
-    const nextPage = () => {
-      if (currentPage.value < totalPages.value) {
-        currentPage.value++;
-        loadAnimals();
-      }
-    };
-    
-    /**
      * Проверяет, является ли текущий пользователь администратором
      */
     const checkAdminStatus = () => {
@@ -470,6 +419,80 @@ export default {
       }
     };
     
+    /**
+     * Настраивает автоматическое обновление списка животных
+     * Запускается при возвращении с формы добавления животного
+     */
+    const setupRefresh = () => {
+      // Проверяем, возвращаемся ли мы с формы добавления животного
+      const justAddedAnimal = route.query.refreshCatalog === 'true';
+      if (justAddedAnimal) {
+        // Загружаем обновленный список животных
+        loadAnimals();
+      }
+      
+      // Настраиваем периодическое обновление данных
+      refreshInterval = setInterval(() => {
+        // Обновляем данные только если страница активна и видима пользователю
+        if (!document.hidden) {
+          loadAnimals();
+        }
+      }, 60000); // Обновляем данные каждую минуту
+    };
+    
+    /**
+     * Настраивает слушателя событий авторизации
+     * Обновляет данные при входе пользователя в систему
+     */
+    const setupAuthListener = () => {
+      // Создаем слушателя события хранилища для отслеживания изменений токена
+      authListener = (event) => {
+        // Проверяем, что изменился именно ключ 'user' в localStorage
+        if (event.key === 'user') {
+          // Если добавлен пользователь (вход в систему)
+          if (event.newValue && !event.oldValue) {
+            console.log('Пользователь авторизовался, обновляем каталог');
+            checkAdminStatus();
+            loadFavorites().then(() => loadAnimals());
+          } 
+          // Если удален пользователь (выход из системы)
+          else if (!event.newValue && event.oldValue) {
+            console.log('Пользователь вышел из системы, обновляем каталог');
+            checkAdminStatus();
+            favorites.value = []; // Очищаем избранное
+            loadAnimals();
+          }
+          // Если изменены данные пользователя
+          else if (event.newValue !== event.oldValue) {
+            console.log('Данные пользователя изменились, обновляем каталог');
+            checkAdminStatus();
+            loadFavorites().then(() => loadAnimals());
+          }
+        }
+      };
+      
+      // Добавляем слушателя к window.addEventListener
+      window.addEventListener('storage', authListener);
+      
+      // Дополнительно добавляем собственное событие для отслеживания локальных изменений
+      window.addEventListener('localAuthChange', () => {
+        console.log('Обнаружено локальное изменение авторизации');
+        checkAdminStatus();
+        loadFavorites().then(() => loadAnimals());
+      });
+    };
+    
+    // Следим за изменениями в параметрах URL
+    watch(
+      () => route.query,
+      (newQuery) => {
+        // Если есть параметр refreshCatalog, обновляем данные
+        if (newQuery.refreshCatalog === 'true') {
+          loadAnimals();
+        }
+      }
+    );
+    
     // Инициализация при монтировании компонента
     onMounted(async () => {
       // Настраиваем axios для работы с токенами
@@ -484,10 +507,30 @@ export default {
       // Проверяем статус администратора
       checkAdminStatus();
       
+      // Настраиваем слушателя авторизации
+      setupAuthListener();
+      
       // Загружаем справочные данные и животных
       await loadReferenceData();
       await loadFavorites();
       await loadAnimals();
+      
+      // Настраиваем автоматическое обновление
+      setupRefresh();
+    });
+    
+    // Очистка при размонтировании компонента
+    onBeforeUnmount(() => {
+      // Очищаем интервал обновления данных
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+      
+      // Удаляем слушателя авторизации
+      if (authListener) {
+        window.removeEventListener('storage', authListener);
+        window.removeEventListener('localAuthChange', () => {});
+      }
     });
     
     return {
@@ -503,8 +546,6 @@ export default {
       sortOptions,
       showFavorites,
       activeDropdown,
-      currentPage,
-      totalPages,
       isAdmin,
       
       loadAnimals,
@@ -519,8 +560,6 @@ export default {
       getSortLabel,
       getClassLabel,
       getHabitatLabel,
-      prevPage,
-      nextPage,
       debouncedSearch
     };
   }
@@ -558,11 +597,44 @@ export default {
   font-weight: bold;
 }
 
-/* Основные стили контейнера */
+/* Основные стили контейнера без прокрутки */
 .catalog-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 10px 20px; /* Уменьшаем верхний и нижний padding с 20px до 10px */
+  /* Устанавливаем фиксированную высоту и запрещаем прокрутку */
+  height: calc(100vh - 20px); /* Корректируем высоту с учетом уменьшенного margin в App.vue */
+  overflow: hidden; /* Запрещаем прокрутку контейнера */
+}
+
+/* Стили для сетки животных с собственной прокруткой */
+.animals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  max-height: 65vh; /* Немного уменьшаем высоту для предотвращения двойной прокрутки */
+  overflow-y: auto; /* Добавляем вертикальную прокрутку только для сетки */
+  padding-right: 10px; /* Отступ справа для полосы прокрутки */
+  padding-top: 15px; /* Отступ сверху */
+  padding-left: 10px; /* Добавляем отступ слева для симметрии */
+  
+  /* Стилизация полосы прокрутки для современных браузеров */
+  scrollbar-width: thin; /* Для Firefox */
+  scrollbar-color: #aaa transparent; /* Для Firefox */
+}
+
+/* Стилизация полосы прокрутки для WebKit (Chrome, Safari) */
+.animals-grid::-webkit-scrollbar {
+  width: 6px; /* Ширина полосы прокрутки */
+}
+
+.animals-grid::-webkit-scrollbar-track {
+  background: transparent; /* Фон полосы */
+}
+
+.animals-grid::-webkit-scrollbar-thumb {
+  background-color: #aaa; /* Цвет ползунка */
+  border-radius: 20px; /* Скругление углов ползунка */
 }
 
 h1 {
@@ -681,13 +753,7 @@ h1 {
   margin-right: 8px;
 }
 
-/* Стили для сетки животных */
-.animals-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-}
-
+/* Стили для карточки животного */
 .animal-card {
   background-color: white;
   border-radius: 8px;
@@ -837,5 +903,13 @@ h1 {
   .animals-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
+}
+</style>
+
+<style>
+/* Добавляем глобальные стили для предотвращения прокрутки страницы */
+body {
+  /* Запрещаем прокрутку на уровне body */
+  overflow: hidden;
 }
 </style>

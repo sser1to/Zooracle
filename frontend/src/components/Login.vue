@@ -68,7 +68,18 @@ export default {
         error.value = '';
         const result = await authService.login(loginData.username, loginData.password);
         if (result) {
-          router.push('/');
+          // Создаем и диспетчеризируем специальное событие для уведомления других компонентов
+          // о том, что произошла авторизация на этой же странице (без перезагрузки)
+          window.dispatchEvent(new CustomEvent('localAuthChange', {
+            detail: { action: 'login', user: result }
+          }));
+          
+          console.log('Успешная авторизация, переадресация на главную страницу');
+          
+          // Короткая задержка для обеспечения обработки события
+          setTimeout(() => {
+            router.push('/');
+          }, 100);
         }
       } catch (err) {
         error.value = err.response?.data?.detail || 'Ошибка при входе. Проверьте логин и пароль.';
