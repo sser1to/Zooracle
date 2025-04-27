@@ -13,6 +13,7 @@ from .animal_types import router as animal_types_router
 from .habitats import router as habitats_router
 from .tests import router as tests_router
 from .questions import router as questions_router
+from .media import router as media_router
 
 router = APIRouter()
 
@@ -34,22 +35,5 @@ router.include_router(tests_router, prefix="/tests", tags=["tests"])
 # Подключаем маршруты для работы с вопросами
 router.include_router(questions_router, prefix="/questions", tags=["questions"])
 
-@router.get("/users/", response_model=List[UserResponse])
-def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    users = db.query(User).offset(skip).limit(limit).all()
-    return users
-
-@router.post("/upload/")
-async def upload_file(file: UploadFile = File(...)):
-    """Загрузка файла в MinIO"""
-    bucket_name = "uploads"
-    try:
-        result = minio_service.upload_file(
-            bucket_name=bucket_name,
-            file_obj=file.file,
-            file_name=file.filename,
-            content_type=file.content_type
-        )
-        return {"url": f"/files/{bucket_name}/{file.filename}", "success": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Подключаем маршруты для работы с медиа-файлами
+router.include_router(media_router, prefix="/media", tags=["media"])

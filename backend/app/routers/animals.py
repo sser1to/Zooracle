@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query # type: ignore
 from sqlalchemy.orm import Session # type: ignore
-from typing import List, Optional
+from typing import List, Optional, Literal
 from sqlalchemy.exc import SQLAlchemyError # type: ignore
+from sqlalchemy import or_, desc, asc # type: ignore
 
 from ..database import get_db
-from ..models import Animal, AnimalPhoto, AnimalType, Habitat, FavoriteAnimal
+from ..models import Animal, AnimalPhoto, AnimalType, Habitat, FavoriteAnimal, User
 from ..schemas import (
     AnimalCreate, 
     AnimalResponse, 
@@ -48,25 +49,40 @@ async def create_animal(
 @router.get("/", response_model=List[AnimalResponse])
 async def get_animals(
     skip: int = 0, 
-    limit: int = 100,
+    limit: int = 10000,  # Увеличиваем лимит до большого значения, чтобы показывать все записи
+    search: Optional[str] = None,
     animal_type_id: Optional[int] = None,
     habitat_id: Optional[int] = None,
+    sort_by: Optional[Literal["name", "id"]] = "id",
+    sort_order: Optional[Literal["asc", "desc"]] = "asc",
+    favorites_only: bool = False,
+    current_user: Optional[User] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Получение списка животных с возможностью фильтрации
+    Получение списка животных с возможностью поиска, фильтрации и сортировки
     
     Args:
         skip: Сколько записей пропустить
-        limit: Максимальное количество записей
-        animal_type_id: ID типа животного для фильтрации (опционально)
-        habitat_id: ID места обитания для фильтрации (опционально)
+        limit: Максимальное количество записей (по умолчанию установлено большое значение для отображения всех записей)
+        search: Строка поиска по названию
+        animal_type_id: ID типа животного для фильтрации
+        habitat_id: ID места обитания для фильтрации
+        sort_by: Поле для сортировки ('name' или 'id')
+        sort_order: Порядок сортировки ('asc' или 'desc')
+        favorites_only: Фильтровать только избранные для текущего пользователя
+        current_user: Текущий пользователь
         db: Сессия базы данных
         
     Returns:
-        List[AnimalResponse]: Список животных
+        List[AnimalResponse]: Отфильтрованный и отсортированный список всех животных
     """
     query = db.query(Animal)
+    
+    # Применяем поиск по названию, если указан
+    if search:
+        # Используем оператор ilike для регистро-независимого поиска подстроки
+        query = query.filter(Animal.name.ilike(f"%{search}%"))
     
     # Применяем фильтры, если они указаны
     if animal_type_id:
@@ -74,6 +90,29 @@ async def get_animals(
     if habitat_id:
         query = query.filter(Animal.habitat_id == habitat_id)
     
+    # Фильтруем по избранным, если запрошено и пользователь авторизован
+    if favorites_only and current_user:
+        # Подзапрос для получения ID избранных животных пользователя
+        favorite_animal_ids = db.query(FavoriteAnimal.animal_id).filter(
+            FavoriteAnimal.user_id == current_user.id
+        ).subquery()
+        
+        # Фильтруем животных по подзапросу
+        query = query.filter(Animal.id.in_(favorite_animal_ids))
+    
+    # Применяем сортировку
+    if sort_by == "name":
+        if sort_order == "desc":
+            query = query.order_by(desc(Animal.name))
+        else:
+            query = query.order_by(asc(Animal.name))
+    else:  # По умолчанию сортируем по ID
+        if sort_order == "desc":
+            query = query.order_by(desc(Animal.id))
+        else:
+            query = query.order_by(asc(Animal.id))
+    
+    # Получаем результаты с пагинацией
     animals = query.offset(skip).limit(limit).all()
     return animals
 
@@ -356,3 +395,27 @@ async def remove_from_favorites(
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Ошибка при удалении из избранного: {str(e)}")
+
+@router.get("/check-favorite/{animal_id}", response_model=bool)
+async def check_is_favorite(
+    animal_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Проверка, добавлено ли животное в избранное текущим пользователем
+    
+    Args:
+        animal_id: ID животного
+        db: Сессия базы данных
+        current_user: Текущий пользователь
+        
+    Returns:
+        bool: True, если животное в избранном, иначе False
+    """
+    favorite = db.query(FavoriteAnimal).filter(
+        FavoriteAnimal.user_id == current_user.id,
+        FavoriteAnimal.animal_id == animal_id
+    ).first()
+    
+    return favorite is not None

@@ -4,6 +4,8 @@ import RegisterForm from './components/Register.vue';
 import ResetPasswordForm from './components/ResetPassword.vue';
 import ResetPasswordConfirmForm from './components/ResetPasswordConfirm.vue';
 import EmailVerification from './components/EmailVerification.vue';
+import AnimalCatalog from './components/AnimalCatalog.vue';
+import AddAnimal from './components/AddAnimal.vue';
 import authService from './services/auth';
 
 /**
@@ -95,12 +97,24 @@ const routes = [
     meta: { title: 'Выход - Zooracle' }
   },
   
-  // Маршрут главной страницы
+  // Маршрут главной страницы - каталог животных
   {
     path: '/',
     name: 'home',
-    component: () => import('./App.vue'),
-    meta: { requiresAuth: true, title: 'Главная - Zooracle' }
+    component: AnimalCatalog,
+    meta: { requiresAuth: true, title: 'Каталог животных - Zooracle' }
+  },
+  
+  // Маршрут для добавления нового вида животных (только для администраторов)
+  {
+    path: '/add-animal',
+    name: 'add-animal',
+    component: AddAnimal,
+    meta: { 
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Добавление нового вида - Zooracle' 
+    }
   },
   
   // Маршрут для обработки несуществующих маршрутов (перенаправление на логин)
@@ -145,6 +159,20 @@ router.beforeEach((to, from, next) => {
   
   // Проверка аутентификации пользователя
   const isAuthenticated = authService.isAuthenticated();
+  
+  // Проверка на админские права для маршрутов, требующих их
+  if (to.meta.requiresAdmin) {
+    // Получаем данные пользователя из localStorage
+    const userData = localStorage.getItem('user');
+    const user = userData ? JSON.parse(userData) : null;
+    const isAdmin = user && user.is_admin === true;
+    
+    if (!isAdmin) {
+      console.log('Доступ запрещен: требуются права администратора');
+      next('/'); // Перенаправляем на главную страницу
+      return;
+    }
+  }
   
   // Перенаправление в зависимости от статуса аутентификации
   if (to.meta.requiresAuth && !isAuthenticated) {
