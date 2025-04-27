@@ -32,7 +32,7 @@ from ..services.user_registration_service import (
     get_pending_user,
     remove_pending_user
 )
-from ..services.smtp_service import send_email_verification_code
+from ..services.smtp_service import send_email_verification_code, send_password_reset_email
 
 # Настройка логирования
 logger = logging.getLogger("auth_router")
@@ -270,3 +270,224 @@ async def confirm_email(verification_data: EmailVerificationCode, db: Session = 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка при создании пользователя: {str(e)}"
         )
+
+
+@router.post("/reset-password/request", status_code=status.HTTP_200_OK)
+def request_password_reset(reset_request: PasswordResetRequest, db: Session = Depends(get_db), request: Request = None):
+    """
+    Обрабатывает запрос на восстановление пароля
+    
+    Args:
+        reset_request (PasswordResetRequest): Данные запроса (email пользователя)
+        db (Session): Сессия базы данных
+        request (Request): Данные HTTP запроса для формирования URL сброса пароля
+        
+    Returns:
+        dict: Сообщение об успешной отправке инструкций
+        
+    Raises:
+        HTTPException: Если произошла ошибка при обработке запроса
+    """
+    logger.info(f"Запрос на сброс пароля для email: {reset_request.email}")
+    
+    try:
+        # Проверяем, есть ли пользователь с таким email
+        user = db.query(User).filter(User.email == reset_request.email).first()
+        
+        # Для безопасности не сообщаем, существует ли такой пользователь
+        if not user:
+            logger.warning(f"Запрос сброса пароля для несуществующего пользователя: {reset_request.email}")
+            # Возвращаем успешный ответ, чтобы не раскрывать информацию о существовании пользователя
+            return {"message": "Если указанный email зарегистрирован, инструкции по сбросу пароля были отправлены."}
+        
+        # Проверяем, есть ли активные токены для этого пользователя, и инвалидируем их
+        existing_tokens = db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.is_used == False,
+            PasswordResetToken.expires_at > datetime.utcnow()
+        ).all()
+        
+        for token in existing_tokens:
+            token.is_used = True
+            logger.info(f"Инвалидация существующего токена для пользователя {user.id}")
+        
+        # Создаем новый токен для сброса пароля
+        reset_token = PasswordResetToken.generate(user.id, user.email)
+        
+        # Сохраняем токен в базе данных
+        db.add(reset_token)
+        db.commit()
+        
+        # Формируем URL для сброса пароля
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:8080")
+        reset_url = f"{frontend_url}/reset-password-confirm?token={reset_token.token}"
+        
+        # Отправляем письмо с инструкциями по сбросу пароля
+        email_sent = send_password_reset_email(user.email, reset_url)
+        
+        if not email_sent:
+            logger.error(f"Не удалось отправить письмо для сброса пароля на {user.email}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Не удалось отправить инструкции по сбросу пароля. Пожалуйста, попробуйте позже."
+            )
+        
+        logger.info(f"Инструкции по сбросу пароля успешно отправлены на {user.email}")
+        return {"message": "Инструкции по сбросу пароля отправлены на указанный email."}
+    
+    except HTTPException:
+        # Пробрасываем HTTPException дальше
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при обработке запроса на сброс пароля: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже."
+        )
+
+
+@router.post("/reset-password/confirm", status_code=status.HTTP_200_OK)
+def confirm_password_reset(reset_data: PasswordReset, db: Session = Depends(get_db)):
+    """
+    Подтверждает сброс пароля с использованием токена и устанавливает новый пароль
+    
+    Args:
+        reset_data (PasswordReset): Данные для сброса пароля (токен и новый пароль)
+        db (Session): Сессия базы данных
+        
+    Returns:
+        dict: Сообщение об успешном сбросе пароля
+        
+    Raises:
+        HTTPException: Если токен недействителен или произошла ошибка при сбросе пароля
+    """
+    logger.info("Запрос на подтверждение сброса пароля")
+    
+    try:
+        # Проверяем, что пароли совпадают
+        if reset_data.password != reset_data.confirm_password:
+            logger.warning("Ошибка: пароли не совпадают")
+            raise HTTPException(status_code=400, detail="Пароли не совпадают")
+        
+        # Ищем токен в базе данных
+        token_record = db.query(PasswordResetToken).filter(PasswordResetToken.token == reset_data.token).first()
+        
+        # Проверяем, что токен существует
+        if not token_record:
+            logger.warning("Попытка сброса пароля с несуществующим токеном")
+            raise HTTPException(status_code=400, detail="Недействительный токен для сброса пароля")
+        
+        # Проверяем, что токен действителен (не использован и не истек)
+        if not token_record.is_valid():
+            logger.warning(f"Попытка использовать недействительный токен: использован={token_record.is_used}, истек={token_record.expires_at < datetime.utcnow()}")
+            raise HTTPException(status_code=400, detail="Токен для сброса пароля недействителен или истек срок его действия")
+        
+        # Получаем пользователя по ID из токена
+        user = db.query(User).filter(User.id == token_record.user_id).first()
+        
+        if not user:
+            logger.error(f"Пользователь с ID {token_record.user_id} не найден для токена {reset_data.token}")
+            raise HTTPException(status_code=400, detail="Пользователь не найден")
+        
+        # Проверяем, что email пользователя совпадает с тем, что в токене
+        if user.email != token_record.email:
+            logger.warning(f"Email пользователя {user.email} не совпадает с email в токене {token_record.email}")
+            raise HTTPException(status_code=400, detail="Недействительный токен для сброса пароля")
+        
+        # Хешируем новый пароль
+        hashed_password = get_password_hash(reset_data.password)
+        
+        # Обновляем пароль пользователя
+        user.password = hashed_password
+        
+        # Помечаем токен как использованный
+        token_record.invalidate()
+        
+        # Сохраняем изменения в базе данных
+        db.commit()
+        
+        logger.info(f"Пароль успешно сброшен для пользователя с ID {user.id}")
+        return {"message": "Пароль успешно изменен"}
+    
+    except HTTPException:
+        # Пробрасываем HTTPException дальше
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при подтверждении сброса пароля: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже."
+        )
+
+@router.get("/reset-password/validate-token/{token}", status_code=status.HTTP_200_OK)
+def validate_reset_token(token: str, db: Session = Depends(get_db)):
+    """
+    Проверяет валидность токена для сброса пароля
+    
+    Args:
+        token (str): Токен для проверки
+        db (Session): Сессия базы данных
+        
+    Returns:
+        dict: Результат проверки токена с указанием причины невалидности
+    """
+    logger.info(f"Запрос на валидацию токена для сброса пароля")
+    
+    try:
+        # Ищем токен в базе данных
+        token_record = db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()
+        
+        # Проверяем существование токена
+        if not token_record:
+            logger.warning(f"Токен не найден в базе данных")
+            return {
+                "valid": False,
+                "reason": "token_not_found"
+            }
+        
+        # Проверка, не использован ли уже токен
+        if token_record.is_used:
+            logger.warning(f"Токен {token} уже был использован")
+            return {
+                "valid": False,
+                "reason": "token_used"
+            }
+        
+        # Проверка срока действия токена
+        if datetime.utcnow() > token_record.expires_at:
+            logger.warning(f"Срок действия токена {token} истек")
+            return {
+                "valid": False,
+                "reason": "token_expired"
+            }
+        
+        # Получение пользователя
+        user = db.query(User).filter(User.id == token_record.user_id).first()
+        if not user:
+            logger.error(f"Пользователь с ID {token_record.user_id} не найден для токена {token}")
+            return {
+                "valid": False,
+                "reason": "user_not_found"
+            }
+        
+        # Проверка соответствия email
+        if user.email != token_record.email:
+            logger.warning(f"Email пользователя {user.email} не совпадает с email в токене {token_record.email}")
+            return {
+                "valid": False,
+                "reason": "email_changed"
+            }
+        
+        # Если все проверки пройдены, токен действителен
+        logger.info(f"Токен {token} действителен")
+        return {
+            "valid": True,
+            "email": token_record.email  # Можно добавить дополнительную информацию
+        }
+        
+    except Exception as e:
+        logger.error(f"Ошибка при проверке токена: {str(e)}")
+        return {
+            "valid": False,
+            "reason": "token_invalid"
+        }
