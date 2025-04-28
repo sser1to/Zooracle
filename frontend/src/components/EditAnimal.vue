@@ -7,13 +7,24 @@
       <p>Загрузка данных...</p>
     </div>
     
-    <div v-if="error && !animalData.name" class="error-message">
+    <div v-if="error && !dataLoaded" class="error-message">
       <p>{{ error }}</p>
       <button @click="loadAnimalData" class="retry-button">Повторить загрузку</button>
       <button @click="$router.push('/')" class="back-button">Вернуться в каталог</button>
     </div>
     
-    <div v-if="!loading && animalData.name" class="form-container">
+    <div v-if="!loading && dataLoaded" class="form-container">
+      <!-- Добавляем кнопку удаления животного в верхней части формы -->
+      <div class="delete-animal-container">
+        <button 
+          type="button" 
+          @click="showDeleteConfirmation = true" 
+          class="delete-animal-button"
+        >
+          Удалить вид
+        </button>
+      </div>
+
       <form @submit.prevent="submitForm" class="animal-form">
         <div class="form-row">
           <!-- Поле ввода названия вида -->
@@ -276,6 +287,32 @@
         </div>
       </form>
     </div>
+
+    <!-- Модальное окно подтверждения удаления -->
+    <div v-if="showDeleteConfirmation" class="confirmation-modal" @click.self="showDeleteConfirmation = false">
+      <div class="confirmation-content">
+        <h3>Удаление вида животного</h3>
+        <p>Вы действительно хотите удалить вид "{{ animalData.name }}"?</p>
+        <p class="warning-text">Это действие нельзя отменить!</p>
+        <div class="confirmation-buttons">
+          <button 
+            type="button" 
+            @click="showDeleteConfirmation = false" 
+            class="cancel-delete-button"
+          >
+            Отмена
+          </button>
+          <button 
+            type="button" 
+            @click="deleteAnimal" 
+            class="confirm-delete-button"
+            :disabled="isDeleting"
+          >
+            {{ isDeleting ? 'Удаление...' : 'Удалить' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -311,11 +348,16 @@ export default {
     const isSubmitting = ref(false);
     const loading = ref(true);
     const showCoverRequiredError = ref(false); // Флаг для отображения ошибки обязательной обложки
+    const dataLoaded = ref(false); // Флаг, указывающий, что данные успешно загружены
     
     // Переменные для предпросмотра медиафайлов
     const showVideoPreview = ref(false);
     const showImagePreview = ref(false);
     const previewMediaUrl = ref('');
+    
+    // Переменные для управления удалением
+    const showDeleteConfirmation = ref(false);
+    const isDeleting = ref(false);
     
     // Данные о существующем животном
     const animalId = computed(() => props.id);
@@ -467,6 +509,7 @@ export default {
       try {
         loading.value = true;
         error.value = '';
+        dataLoaded.value = false; // Сбрасываем флаг загрузки данных
         
         // Сбрасываем предыдущие данные перед загрузкой новых
         resetFormData();
@@ -496,10 +539,14 @@ export default {
         
         console.log('Загружены данные животного:', animal);
         console.log('Загружены фотографии:', existingImages.value);
+
+        // Устанавливаем флаг успешной загрузки данных
+        dataLoaded.value = true;
         
       } catch (err) {
         console.error('Ошибка при загрузке данных животного:', err);
         error.value = 'Не удалось загрузить данные животного.';
+        dataLoaded.value = false; // Сбрасываем флаг при ошибке
       } finally {
         loading.value = false;
       }
@@ -794,6 +841,42 @@ export default {
       }
     };
     
+    // Удаляет животное с сервера
+    const deleteAnimal = async () => {
+      try {
+        isDeleting.value = true;
+        
+        // Отправляем запрос на удаление животного
+        await axios.delete(`${apiBase}/animals/${animalId.value}`);
+        
+        // Закрываем модальное окно
+        showDeleteConfirmation.value = false;
+        
+        // Перенаправляем на главную с параметром для обновления каталога
+        router.push({ path: '/', query: { refreshCatalog: 'true' } });
+      } catch (err) {
+        console.error('Ошибка при удалении животного:', err);
+        
+        // Получаем детальное описание ошибки из ответа API
+        if (err.response && err.response.data && err.response.data.detail) {
+          if (Array.isArray(err.response.data.detail)) {
+            // Если ошибка содержит массив деталей, объединяем их
+            formError.value = err.response.data.detail.map(item => item.msg).join(', ');
+          } else {
+            // Если ошибка содержит строку
+            formError.value = err.response.data.detail;
+          }
+        } else {
+          formError.value = err.message || 'Произошла ошибка при удалении данных';
+        }
+        
+        // Закрываем модальное окно подтверждения
+        showDeleteConfirmation.value = false;
+      } finally {
+        isDeleting.value = false;
+      }
+    };
+
     // Загружаем данные при монтировании компонента
     onMounted(() => {
       // Настраиваем axios для работы с токенами
@@ -826,6 +909,11 @@ export default {
       previewImages,
       showCoverRequiredError,
       removeVideoFlag,
+      dataLoaded, // Добавляем флаг загрузки данных
+      // Переменные и методы для удаления
+      showDeleteConfirmation,
+      isDeleting,
+      deleteAnimal,
       // Просмотр медиафайлов
       showVideoPreview,
       showImagePreview,
@@ -1310,6 +1398,106 @@ export default {
   .video-container {
     padding-bottom: 75%; /* Сохраняем то же соотношение */
   }
+}
+
+/* Стили для кнопки удаления и контейнера */
+.delete-animal-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.delete-animal-button {
+  background-color: #ff5252;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.delete-animal-button:hover {
+  background-color: #d32f2f;
+}
+
+/* Стили для модального окна подтверждения */
+.confirmation-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1100;
+}
+
+.confirmation-content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 30px;
+  width: 400px;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.confirmation-content h3 {
+  margin-top: 0;
+  color: #333;
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 15px;
+}
+
+.warning-text {
+  color: #ff5252;
+  font-weight: bold;
+  margin: 20px 0;
+}
+
+.confirmation-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.cancel-delete-button,
+.confirm-delete-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.cancel-delete-button {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.cancel-delete-button:hover {
+  background-color: #e0e0e0;
+}
+
+.confirm-delete-button {
+  background-color: #ff5252;
+  color: white;
+}
+
+.confirm-delete-button:hover {
+  background-color: #d32f2f;
+}
+
+.confirm-delete-button:disabled {
+  background-color: #ffb4b4;
+  cursor: not-allowed;
 }
 </style>
 
