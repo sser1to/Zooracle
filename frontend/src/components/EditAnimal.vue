@@ -133,7 +133,7 @@
         </div>
         
         <!-- Существующие изображения -->
-        <div v-if="existingImages.length" class="existing-images-section">
+        <div v-if="existingImages.length > 0" class="existing-images-section">
           <h3>Текущие изображения:</h3>
           <div class="preview-gallery">
             <div 
@@ -142,10 +142,11 @@
               class="gallery-item"
             >
               <img 
-                :src="getImageUrl(image.photo_id || image.id)" 
+                :src="getImageUrl(image.photo_id)" 
                 alt="Существующее изображение" 
                 class="gallery-image"
-                @click="openImagePreview(image.photo_id || image.id)"
+                @click="openImagePreview(image.photo_id)"
+                @error="handleImageError"
               />
               <button 
                 type="button" 
@@ -572,8 +573,44 @@ export default {
         currentVideoId.value = animal.video_id;
         
         // Получаем все фотографии животного
-        const photosResponse = await axios.get(`${apiBase}/animals/${animalId.value}/photos`);
-        existingImages.value = photosResponse.data || [];
+        try {
+          console.log(`Запрашиваем фотографии для животного с ID: ${animalId.value}`);
+          const photosResponse = await axios.get(`${apiBase}/animals/${animalId.value}/photos`);
+          console.log('Получен ответ с фотографиями:', photosResponse.data);
+          
+          // Проверка структуры ответа
+          if (Array.isArray(photosResponse.data)) {
+            existingImages.value = photosResponse.data || [];
+            
+            // Подробное логирование каждой фотографии для отладки
+            existingImages.value.forEach((photo, index) => {
+              console.log(`Фото ${index + 1}:`, photo);
+            });
+            
+            // Нормализация структуры данных фотографий для единообразия
+            existingImages.value = existingImages.value.map(photo => {
+              // Проверяем все возможные структуры данных
+              if (photo.photo_id) {
+                console.log(`Фото имеет поле photo_id: ${photo.photo_id}`);
+                return photo;
+              } else if (photo.id) {
+                console.log(`Фото имеет поле id: ${photo.id}, создаем photo_id`);
+                return { photo_id: photo.id };
+              } else {
+                console.warn('Обнаружена неизвестная структура фото:', photo);
+                return photo;
+              }
+            });
+            
+            console.log('Нормализованные фотографии:', existingImages.value);
+          } else {
+            console.warn('Ответ API не содержит массив фотографий:', photosResponse.data);
+            existingImages.value = [];
+          }
+        } catch (err) {
+          console.error('Ошибка при запросе фотографий:', err);
+          existingImages.value = [];
+        }
         
         console.log('Загружены данные животного:', animal);
         console.log('Загружены фотографии:', existingImages.value);
@@ -840,14 +877,42 @@ export default {
             imageUploadPromises.push(
               uploadFile(image).then(imageId => {
                 if (imageId) {
-                  // Добавляем фото к животному только если загрузка прошла успешно
-                  return axios.post(`${apiBase}/animals/${animalId.value}/photos/`, {
+                  // Логируем идентификатор загруженного файла
+                  console.log(`Загружено изображение с ID: ${imageId}`);
+                  
+                  // Формируем правильную структуру данных для API - только photo_id, без animal_id
+                  const photoData = {
                     photo_id: imageId
-                  }).catch(err => {
-                    console.warn(`Не удалось связать фото ${imageId} с животным:`, err);
-                    return null;
-                  });
+                  };
+                  
+                  console.log(`Отправляем запрос на добавление фото к животному ${animalId.value}:`, photoData);
+                  
+                  // Добавляем фото к животному только если загрузка прошла успешно
+                  return axios.post(`${apiBase}/animals/${animalId.value}/photos/`, photoData)
+                    .then(response => {
+                      console.log(`Фото ${imageId} успешно связано с животным:`, response.data);
+                      return response.data;
+                    })
+                    .catch(err => {
+                      console.error(`Не удалось связать фото ${imageId} с животным:`, err);
+                      
+                      // Детализируем ошибку для отладки
+                      if (err.response) {
+                        console.error('Данные ответа:', err.response.data);
+                        console.error('Статус:', err.response.status);
+                        console.error('Заголовки:', err.response.headers);
+                      } else if (err.request) {
+                        console.error('Запрос был сделан, но ответ не получен:', err.request);
+                      } else {
+                        console.error('Ошибка при настройке запроса:', err.message);
+                      }
+                      
+                      return null;
+                    });
                 }
+                return null;
+              }).catch(err => {
+                console.error('Ошибка при загрузке изображения:', err);
                 return null;
               })
             );

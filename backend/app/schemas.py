@@ -99,7 +99,8 @@ class AnimalPhotoBase(BaseModel):
 
 
 class AnimalPhotoCreate(AnimalPhotoBase):
-    animal_id: int
+    # Удаляем поле animal_id, так как оно передается в пути URL
+    pass
 
 
 class AnimalPhotoResponse(AnimalPhotoBase):

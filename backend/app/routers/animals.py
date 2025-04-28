@@ -213,8 +213,8 @@ async def add_photo(
     Добавление фото к животному (только для администраторов)
     
     Args:
-        animal_id: ID животного
-        photo: Данные о фотографии
+        animal_id: ID животного (из пути URL)
+        photo: Данные о фотографии (содержит только photo_id)
         db: Сессия базы данных
         current_user: Текущий пользователь (должен быть администратором)
         
@@ -226,7 +226,7 @@ async def add_photo(
     if animal is None:
         raise HTTPException(status_code=404, detail="Животное не найдено")
     
-    # Создаем новую фотографию
+    # Создаем новую фотографию, используя animal_id из пути и photo_id из тела запроса
     new_photo = AnimalPhoto(animal_id=animal_id, photo_id=photo.photo_id)
     
     try:
@@ -264,7 +264,7 @@ async def get_animal_photos(
 @router.delete("/{animal_id}/photos/{photo_id}")
 async def delete_animal_photo(
     animal_id: int,
-    photo_id: int,
+    photo_id: str,  # Изменяем тип на str для поддержки UUID 
     db: Session = Depends(get_db),
     current_user = Depends(get_current_admin_user)
 ):
@@ -273,16 +273,16 @@ async def delete_animal_photo(
     
     Args:
         animal_id: ID животного
-        photo_id: ID фотографии
+        photo_id: ID фотографии (строковый идентификатор)
         db: Сессия базы данных
         current_user: Текущий пользователь (должен быть администратором)
         
     Returns:
         dict: Сообщение об успешном удалении
     """
-    # Проверяем существование фото
+    # Ищем фото по photo_id (строка) вместо id (число)
     photo = db.query(AnimalPhoto).filter(
-        AnimalPhoto.id == photo_id, 
+        AnimalPhoto.photo_id == photo_id, 
         AnimalPhoto.animal_id == animal_id
     ).first()
     
