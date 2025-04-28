@@ -85,14 +85,17 @@
           
           <!-- Предварительный просмотр обложки -->
           <div v-if="previewCover" class="preview-container">
-            <img :src="previewCover" alt="Предпросмотр обложки" class="preview-image" />
-            <button 
-              type="button" 
-              @click="removeCover" 
-              class="remove-image-button"
-            >
-              Удалить
-            </button>
+            <div class="cover-preview-wrapper">
+              <img :src="previewCover" alt="Предпросмотр обложки" class="preview-image" />
+              <button 
+                type="button" 
+                @click="removeCover" 
+                class="remove-gallery-image-button"
+                aria-label="Удалить обложку"
+              >
+                &times;
+              </button>
+            </div>
           </div>
           
           <!-- Сообщение о необходимости загрузить обложку, если она не выбрана -->
@@ -658,6 +661,15 @@ export default {
 /* Стили для предпросмотра изображений */
 .preview-container {
   margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Центрирование содержимого по горизонтали */
+}
+
+/* Контейнер для изображения обложки и кнопки удаления */
+.cover-preview-wrapper {
+  position: relative; /* Относительное позиционирование для абсолютного позиционирования крестика */
+  display: inline-block; /* Занимает только необходимое пространство */
 }
 
 .preview-image {
@@ -672,6 +684,7 @@ export default {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 10px;
+  justify-content: center; /* Центрирование галереи изображений */
 }
 
 .gallery-item {
@@ -717,6 +730,7 @@ export default {
   margin-top: 10px;
   display: flex;
   align-items: center;
+  justify-content: center; /* Центрирование информации о видео */
   gap: 10px;
 }
 
@@ -798,5 +812,11 @@ export default {
   color: #ff5252;
   font-size: 14px;
   margin-top: 5px;
+}
+</style>
+
+<style>
+body {
+  overflow: auto;
 }
 </style>

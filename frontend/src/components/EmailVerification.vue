@@ -467,7 +467,7 @@ export default {
 .email-verification-container {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   min-height: 100vh;
   padding: 20px;
   background-color: #f5f5f5;
