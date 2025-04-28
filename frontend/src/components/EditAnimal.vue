@@ -88,9 +88,25 @@
         
         <!-- Существующая обложка и возможность загрузить новую -->
         <div class="file-upload-section">
-          <div v-if="currentPreviewUrl" class="current-preview">
-            <h3>Текущая обложка:</h3>
-            <img :src="currentPreviewUrl" alt="Текущая обложка" class="preview-image" />
+          <div v-if="(currentPreviewUrl && !previewCover) || previewCover" class="current-preview">
+            <h3>Обложка:</h3>
+            <!-- Контейнер для изображения обложки и кнопки удаления -->
+            <div class="cover-preview-wrapper">
+              <img 
+                :src="previewCover || currentPreviewUrl" 
+                alt="Обложка" 
+                class="preview-image" 
+              />
+              <button 
+                v-if="previewCover"
+                type="button" 
+                @click="removeCover" 
+                class="remove-gallery-image-button"
+                aria-label="Удалить обложку"
+              >
+                &times;
+              </button>
+            </div>
           </div>
           
           <label class="file-upload-button">
@@ -104,24 +120,11 @@
             />
             <div class="upload-button-content">
               <span class="icon">📎</span>
-              {{ currentPreviewUrl ? 'Заменить обложку' : 'Загрузить обложку' }}
-              <span v-if="!currentPreviewUrl" class="required-indicator">*</span>
+              {{ currentPreviewUrl || previewCover ? 'Заменить обложку' : 'Загрузить обложку' }}
+              <span v-if="!currentPreviewUrl && !previewCover" class="required-indicator">*</span>
             </div>
           </label>
           <span class="file-format-info">JPEG, PNG, WEBP до 4 МБ</span>
-          
-          <!-- Предварительный просмотр новой обложки -->
-          <div v-if="previewCover" class="preview-container">
-            <h3>Новая обложка:</h3>
-            <img :src="previewCover" alt="Предпросмотр новой обложки" class="preview-image" />
-            <button 
-              type="button" 
-              @click="removeCover" 
-              class="remove-image-button"
-            >
-              Отменить замену
-            </button>
-          </div>
           
           <!-- Сообщение о необходимости загрузить обложку, если она не выбрана и нет текущей -->
           <div v-if="showCoverRequiredError" class="cover-required-error">
@@ -317,7 +320,7 @@
 </template>
 
 <script>
-import { ref, onMounted, reactive, computed, watch } from 'vue';
+import { ref, onMounted, reactive, computed, watch, onBeforeUnmount, onActivated } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 
@@ -382,12 +385,34 @@ export default {
     const selectedVideo = ref(null);
     const selectedImages = ref([]);
     const previewImages = ref([]);
+
+    /**
+     * Полностью очищает файлы предпросмотра и освобождает ресурсы
+     * @description Освобождает ресурсы URL объектов для предотвращения утечек памяти
+     */
+    const clearPreviewResources = () => {
+      // Освобождаем ресурсы для текущей обложки
+      if (previewCover.value) {
+        URL.revokeObjectURL(previewCover.value);
+        previewCover.value = '';
+      }
+
+      // Освобождаем ресурсы для всех изображений галереи
+      previewImages.value.forEach(image => {
+        if (image.preview) {
+          URL.revokeObjectURL(image.preview);
+        }
+      });
+      previewImages.value = [];
+    };
     
     /**
      * Сбрасывает состояние формы для подготовки к загрузке новых данных
      * @description Очищает все данные в форме перед загрузкой новых данных животного
      */
     const resetFormData = () => {
+      console.log('Сбрасываем данные формы');
+      
       // Очищаем данные формы
       animalData.name = '';
       animalData.description = '';
@@ -400,15 +425,11 @@ export default {
       currentVideoId.value = null;
       
       // Очищаем изображения и освобождаем ресурсы
-      previewImages.value.forEach(image => {
-        URL.revokeObjectURL(image.preview);
-      });
+      clearPreviewResources();
       
       // Сбрасываем загруженные файлы
-      previewCover.value = '';
       selectedCover.value = null;
       selectedVideo.value = null;
-      previewImages.value = [];
       selectedImages.value = [];
       
       // Очищаем массивы изображений
@@ -422,6 +443,23 @@ export default {
       showVideoPreview.value = false;
       showImagePreview.value = false;
       previewMediaUrl.value = '';
+    };
+    
+    /**
+     * Полностью сбрасывает состояние формы и загруженные данные
+     * @description Очищает все поля формы и сбрасывает состояние компонента
+     */
+    const resetAllFormData = () => {
+      // Очищаем данные формы
+      resetFormData();
+      
+      // Сбрасываем все флаги и состояния
+      dataLoaded.value = false;
+      loading.value = false;
+      error.value = '';
+      formError.value = '';
+      
+      console.log('Все данные формы сброшены');
     };
     
     /**
@@ -507,12 +545,12 @@ export default {
      */
     const loadAnimalData = async () => {
       try {
+        // Сначала сбрасываем все предыдущие данные
+        resetFormData();
+        
         loading.value = true;
         error.value = '';
         dataLoaded.value = false; // Сбрасываем флаг загрузки данных
-        
-        // Сбрасываем предыдущие данные перед загрузкой новых
-        resetFormData();
         
         // Получаем информацию о животном
         const animalResponse = await axios.get(`${apiBase}/animals/${animalId.value}`);
@@ -892,6 +930,29 @@ export default {
       Promise.all([loadReferenceData(), loadAnimalData()]);
     });
     
+    // Сбрасываем все данные формы при размонтировании компонента
+    onBeforeUnmount(() => {
+      console.log('Компонент EditAnimal размонтируется - сбрасываем все данные');
+      resetAllFormData();
+    });
+    
+    // Добавляем обработчик события активации компонента (для сброса данных при повторном входе)
+    onActivated(() => {
+      console.log('Компонент EditAnimal активирован - перезагружаем данные');
+      // Полностью перезагружаем данные при каждой активации компонента
+      Promise.all([loadReferenceData(), loadAnimalData()]);
+    });
+    
+    // Очищаем форму при переходе на другую страницу
+    router.beforeEach((to, from, next) => {
+      // Если уходим со страницы редактирования
+      if (from.name === 'EditAnimal' && to.name !== 'EditAnimal') {
+        console.log('Переход со страницы редактирования - сбрасываем все данные');
+        resetAllFormData();
+      }
+      next();
+    });
+
     return {
       animalTypes,
       habitats,
@@ -934,7 +995,9 @@ export default {
       submitForm,
       loadAnimalData,
       getImageUrl,
-      getVideoUrl
+      getVideoUrl,
+      resetAllFormData,
+      clearPreviewResources,
     };
   }
 };
