@@ -1498,8 +1498,141 @@ export default {
   margin-right: 5px;
 }
 
-/* Стили для модального окна с видео */
-.video-modal,
+/* 
+ * Стили для модального окна с видео 
+ * Настраиваем фиксированное позиционирование, чтобы окно занимало весь экран
+ * Используем z-index для отображения поверх других элементов
+ */
+.video-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw; /* Используем единицу viewport width для учета всей ширины экрана */
+  height: 100vh; /* Используем единицу viewport height для учета всей высоты экрана */
+  background-color: rgba(0, 0, 0, 0.85); /* Более темный фон для лучшего контраста */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 0; /* Убираем отступы для максимального использования пространства */
+  box-sizing: border-box; /* Включаем border-box для правильного расчета размеров */
+  overflow: hidden; /* Предотвращаем прокрутку страницы при открытом модальном окне */
+}
+
+/* 
+ * Контейнер содержимого модального окна видео
+ * Уменьшаем внутренние отступы для максимизации области видео
+ * Используем flex для центрирования содержимого
+ */
+.video-modal-content {
+  position: relative;
+  width: 90%; /* Увеличиваем ширину контента до 90% от доступного пространства */
+  height: 85%; /* Устанавливаем высоту контента в 85% от высоты экрана */
+  max-width: 1600px; /* Ограничиваем максимальную ширину для больших экранов */
+  background-color: transparent; /* Делаем фон прозрачным для лучшего вида видео */
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  padding: 0; /* Убираем отступы для максимизации видео */
+  overflow: hidden; /* Предотвращаем выход содержимого за границы */
+}
+
+/* 
+ * Контейнер для видеоплеера
+ * Использует всю доступную площадь модального окна
+ */
+.video-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden; /* Предотвращаем появление полос прокрутки */
+  background-color: #000; /* Черный фон для частей, не занятых видео */
+  border-radius: 4px; /* Небольшое скругление для визуального комфорта */
+}
+
+/* 
+ * Стили для самого видеоплеера
+ * object-fit: contain - сохраняет пропорции видео
+ */
+.video-player {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Важно для сохранения соотношения сторон видео */
+  max-height: 100%;
+  display: block; /* Убираем возможные отступы внутри блока */
+  background-color: #000; /* Черный фон для частей, не занятых видео */
+}
+
+/* 
+ * Улучшенная кнопка закрытия
+ * Позиционируется поверх видео с хорошей видимостью
+ */
+.video-modal-content .close-modal {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 40px;
+  height: 40px;
+  font-size: 28px;
+  background-color: rgba(255, 82, 82, 0.8); /* Полупрозрачный красный фон */
+  color: white;
+  border: 2px solid white; /* Белая граница для контраста */
+  border-radius: 50%; /* Круглая форма */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1001; /* Выше чем остальные элементы для гарантии доступности */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); /* Тень для лучшей видимости */
+  transition: all 0.2s ease; /* Плавное изменение при наведении */
+}
+
+/* Эффект при наведении на кнопку закрытия */
+.video-modal-content .close-modal:hover {
+  background-color: rgba(255, 82, 82, 1); /* Полностью непрозрачный при наведении */
+  transform: scale(1.1); /* Небольшое увеличение для обратной связи */
+}
+
+/* 
+ * Адаптивные стили для разных размеров экрана
+ * Оптимизация для мобильных устройств
+ */
+@media (max-width: 768px) {
+  .video-modal-content {
+    padding: 15px;
+    max-width: 90%; /* Увеличиваем занимаемое пространство на мобильных */
+    min-height: 300px; /* Минимальная высота для размещения видео и контроллеров */
+  }
+  
+  .video-container {
+    padding-bottom: 75%; /* Увеличенное соотношение для мобильных устройств */
+  }
+}
+
+/* Адаптивные стили для видеоплеера на маленьких экранах */
+@media (max-width: 480px) {
+  .video-modal-content {
+    width: 100%; /* Занимаем всю ширину экрана */
+    height: auto; /* Высота подстраивается под содержимое */
+    max-height: 90%; /* Ограничиваем максимальную высоту */
+  }
+
+  .video-container {
+    width: 100%; /* Занимаем всю ширину контейнера */
+    height: auto; /* Высота подстраивается под содержимое */
+  }
+
+  .video-player {
+    width: 100%; /* Видео занимает всю ширину контейнера */
+    height: auto; /* Высота подстраивается под содержимое */
+    max-height: 90vh; /* Ограничиваем высоту видео */
+  }
+}
+
+/* Стили модального окна для изображений оставляем без изменений */
 .image-modal {
   position: fixed;
   top: 0;
@@ -1513,7 +1646,6 @@ export default {
   z-index: 1000;
 }
 
-.video-modal-content,
 .image-modal-content {
   position: relative;
   background-color: #fff;
@@ -1527,29 +1659,6 @@ export default {
   flex-direction: column;
 }
 
-/* Стили для контейнера видео с адаптивными размерами */
-.video-container {
-  position: relative;
-  width: 100%; /* Занимаем всю доступную ширину */
-  max-width: 1920px; /* Максимальная ширина для 4K видео */
-  height: auto;
-  padding-bottom: 56.25%; /* Соотношение сторон 16:9 */
-  background-color: #000;
-  overflow: hidden;
-  margin: 0 auto; /* Центрируем контейнер */
-}
-
-/* Стили для видеоплеера */
-.video-player {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain; /* Сохраняет соотношение сторон видео */
-  z-index: 5;
-}
-
 /* Стили для полноэкранного просмотра изображений */
 .image-preview-full {
   max-width: 100%;
@@ -1560,7 +1669,7 @@ export default {
 }
 
 /* Улучшенный стиль для кнопки закрытия модального окна */
-.close-modal {
+.image-modal-content .close-modal {
   position: absolute;
   top: 7px;
   right: 7px;
@@ -1584,25 +1693,24 @@ export default {
 /* Адаптивные стили для видеоплеера */
 @media (max-width: 768px) {
   .video-modal-content {
-    padding: 15px;
-    max-width: 90%; /* Увеличиваем занимаемое пространство на мобильных */
-    min-height: 300px; /* Минимальная высота для размещения видео и контроллеров */
+    max-width: 95vw;
+    max-height: 85vh;
+    padding: 5px;
   }
-  
+
   .video-container {
-    padding-bottom: 75%; /* Увеличенное соотношение для мобильных устройств */
+    padding-bottom: 25%; /* Увеличиваем соотношение сторон для мобильных */
   }
 }
 
-/* Адаптивные стили для очень маленьких экранов */
 @media (max-width: 480px) {
   .video-modal-content {
-    padding: 10px;
-    max-width: 98%;
+    max-width: 100vw;
+    max-height: 80vh;
   }
-  
-  .video-container {
-    padding-bottom: 75%; /* Сохраняем то же соотношение */
+
+  .video-player {
+    max-height: 80vh;
   }
 }
 
