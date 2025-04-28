@@ -130,7 +130,22 @@
         <div class="animal-info">
           <h3 class="animal-name">{{ animal.name }}</h3>
         </div>
+        
+        <!-- Кнопка редактирования для администраторов -->
+        <router-link 
+          v-if="isAdmin" 
+          :to="`/edit-animal/${animal.id}`" 
+          class="edit-button"
+          title="Редактировать"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="edit-icon">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+          </svg>
+        </router-link>
+        
+        <!-- Кнопка избранного (только для не-администраторов) -->
         <button 
+          v-if="!isAdmin"
           class="favorite-button" 
           @click="toggleFavorite(animal)"
           :class="{ 'is-favorite': isFavorite(animal.id) }"
@@ -904,12 +919,40 @@ h1 {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
 }
+
+/* Стили кнопки редактирования */
+.edit-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 8px;
+  box-sizing: border-box;
+  transition: background-color 0.3s;
+  text-decoration: none;
+}
+
+.edit-button:hover {
+  background-color: white;
+}
+
+.edit-icon {
+  width: 20px;
+  height: 20px;
+  fill: #2196F3;
+}
 </style>
 
 <style>
-/* Добавляем глобальные стили для предотвращения прокрутки страницы */
 body {
-  /* Запрещаем прокрутку на уровне body */
   overflow: hidden;
 }
 </style>

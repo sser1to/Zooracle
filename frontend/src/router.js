@@ -6,6 +6,7 @@ import ResetPasswordConfirmForm from './components/ResetPasswordConfirm.vue';
 import EmailVerification from './components/EmailVerification.vue';
 import AnimalCatalog from './components/AnimalCatalog.vue';
 import AddAnimal from './components/AddAnimal.vue';
+import EditAnimal from './components/EditAnimal.vue'; // Импортируем компонент редактирования
 import authService from './services/auth';
 
 /**
@@ -114,6 +115,19 @@ const routes = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Добавление нового вида - Zooracle' 
+    }
+  },
+  
+  // Маршрут для редактирования вида животных (только для администраторов)
+  {
+    path: '/edit-animal/:id',
+    name: 'edit-animal',
+    component: EditAnimal,
+    props: true,
+    meta: { 
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Редактирование вида - Zooracle' 
     }
   },
   
