@@ -171,6 +171,9 @@
         <div v-if="error" class="error-message">
           <p>{{ error }}</p>
         </div>
+        <div v-if="nameErrorMessage" class="error-message">
+          <p>{{ nameErrorMessage }}</p>
+        </div>
         
         <!-- Кнопки управления формой -->
         <div class="form-buttons">
@@ -217,6 +220,8 @@ export default {
     const error = ref('');
     const isSubmitting = ref(false);
     const showCoverRequiredError = ref(false); // Флаг для отображения ошибки обязательной обложки
+    const nameErrorMessage = ref(''); // Сообщение об ошибке для имени животного
+    const isCheckingName = ref(false); // Флаг проверки имени
     
     // Данные животного
     const animalData = reactive({
@@ -232,6 +237,46 @@ export default {
     const selectedVideo = ref(null);
     const selectedImages = ref([]);
     const previewImages = ref([]);
+    
+    /**
+     * Проверяет уникальность имени вида животного
+     * @async
+     * @param {string} name - Имя животного для проверки
+     * @returns {Promise<boolean>} - true если имя уникально, false если уже существует
+     */
+    const checkNameUnique = async (name) => {
+      try {
+        isCheckingName.value = true;
+        nameErrorMessage.value = '';
+        
+        // Ищем животных с таким же именем через поисковый запрос
+        const response = await axios.get(`${apiBase}/animals/`, {
+          params: {
+            search: name,
+            limit: 100
+          }
+        });
+        
+        // Проверяем, есть ли точное совпадение по имени
+        const exactMatch = response.data.find(animal => 
+          animal.name.toLowerCase() === name.toLowerCase()
+        );
+        
+        // Если найдено точное совпадение, имя не уникально
+        if (exactMatch) {
+          nameErrorMessage.value = 'Вид животного с таким названием уже существует';
+          return false;
+        }
+        
+        return true;
+      } catch (err) {
+        console.error('Ошибка при проверке уникальности имени:', err);
+        // При ошибке лучше разрешить продолжение, но залогировать проблему
+        return true;
+      } finally {
+        isCheckingName.value = false;
+      }
+    };
     
     /**
      * Загружает справочные данные (типы животных, ареалы обитания)
@@ -395,6 +440,7 @@ export default {
       // Сбрасываем сообщения об ошибках
       error.value = '';
       showCoverRequiredError.value = false;
+      nameErrorMessage.value = '';
     };
     
     /**
@@ -404,6 +450,7 @@ export default {
     const submitForm = async () => {
       try {
         error.value = '';
+        nameErrorMessage.value = '';
         isSubmitting.value = true;
         
         // Проверка наличия обложки (обязательное поле)
@@ -411,6 +458,15 @@ export default {
           showCoverRequiredError.value = true;
           isSubmitting.value = false;
           return;
+        }
+        
+        // Проверяем уникальность имени перед отправкой
+        if (animalData.name) {
+          const isUnique = await checkNameUnique(animalData.name);
+          if (!isUnique) {
+            isSubmitting.value = false;
+            return;
+          }
         }
         
         // Создаем массив для хранения всех загрузок
@@ -567,6 +623,8 @@ export default {
       selectedVideo,
       previewImages,
       showCoverRequiredError,
+      nameErrorMessage,
+      isCheckingName,
       handleCoverUpload,
       removeCover,
       handleImagesUpload,

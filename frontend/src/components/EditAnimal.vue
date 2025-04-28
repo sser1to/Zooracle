@@ -36,6 +36,8 @@
               required
               class="input-field"
             />
+            <!-- Сообщение об ошибке уникальности имени -->
+            <div v-if="nameErrorMessage" class="error-message">{{ nameErrorMessage }}</div>
           </div>
           
           <!-- Выпадающий список типов животных -->
@@ -351,6 +353,9 @@ export default {
     const loading = ref(true);
     const showCoverRequiredError = ref(false); // Флаг для отображения ошибки обязательной обложки
     const dataLoaded = ref(false); // Флаг, указывающий, что данные успешно загружены
+    const nameErrorMessage = ref(''); // Сообщение об ошибке для имени животного
+    const isCheckingName = ref(false); // Флаг проверки имени
+    const originalName = ref(''); // Оригинальное имя животного для сравнения
     
     // Переменные для предпросмотра медиафайлов
     const showVideoPreview = ref(false);
@@ -384,6 +389,51 @@ export default {
     const selectedVideo = ref(null);
     const selectedImages = ref([]);
     const previewImages = ref([]);
+
+    /**
+     * Проверяет уникальность имени вида животного
+     * @async
+     * @param {string} name - Имя животного для проверки
+     * @returns {Promise<boolean>} - true если имя уникально или совпадает с исходным, false если уже существует
+     */
+    const checkNameUnique = async (name) => {
+      try {
+        isCheckingName.value = true;
+        nameErrorMessage.value = '';
+        
+        // Если имя не изменилось, считаем его уникальным
+        if (name.toLowerCase() === originalName.value.toLowerCase()) {
+          return true;
+        }
+        
+        // Ищем животных с таким же именем через поисковый запрос
+        const response = await axios.get(`${apiBase}/animals/`, {
+          params: {
+            search: name,
+            limit: 100
+          }
+        });
+        
+        // Проверяем, есть ли точное совпадение по имени (кроме текущего животного)
+        const exactMatch = response.data.find(animal => 
+          animal.name.toLowerCase() === name.toLowerCase() && animal.id.toString() !== animalId.value
+        );
+        
+        // Если найдено точное совпадение, имя не уникально
+        if (exactMatch) {
+          nameErrorMessage.value = 'Вид животного с таким названием уже существует';
+          return false;
+        }
+        
+        return true;
+      } catch (err) {
+        console.error('Ошибка при проверке уникальности имени:', err);
+        // При ошибке лучше разрешить продолжение, но залогировать проблему
+        return true;
+      } finally {
+        isCheckingName.value = false;
+      }
+    };
 
     /**
      * Полностью очищает файлы предпросмотра и освобождает ресурсы
@@ -442,6 +492,8 @@ export default {
       showVideoPreview.value = false;
       showImagePreview.value = false;
       previewMediaUrl.value = '';
+      nameErrorMessage.value = '';
+      originalName.value = '';
     };
     
     /**
@@ -557,6 +609,7 @@ export default {
         
         // Заполняем форму данными животного
         animalData.name = animal.name;
+        originalName.value = animal.name; // Сохраняем оригинальное имя для проверки уникальности
         animalData.description = animal.description;
         animalData.animal_type_id = animal.animal_type_id;
         animalData.habitat_id = animal.habitat_id;
@@ -795,6 +848,7 @@ export default {
     const submitForm = async () => {
       try {
         formError.value = '';
+        nameErrorMessage.value = '';
         isSubmitting.value = true;
         
         // Проверка наличия обложки (если нет текущей и не выбрана новая)
@@ -802,6 +856,15 @@ export default {
           showCoverRequiredError.value = true;
           isSubmitting.value = false;
           return;
+        }
+        
+        // Проверяем уникальность имени перед отправкой
+        if (animalData.name) {
+          const isUnique = await checkNameUnique(animalData.name);
+          if (!isUnique) {
+            isSubmitting.value = false;
+            return;
+          }
         }
         
         // Создаем массив для хранения всех загрузок
@@ -1033,7 +1096,10 @@ export default {
       previewImages,
       showCoverRequiredError,
       removeVideoFlag,
-      dataLoaded, // Добавляем флаг загрузки данных
+      dataLoaded,
+      nameErrorMessage,
+      isCheckingName,
+      originalName,
       // Переменные и методы для удаления
       showDeleteConfirmation,
       isDeleting,
@@ -1061,6 +1127,7 @@ export default {
       getVideoUrl,
       resetAllFormData,
       clearPreviewResources,
+      checkNameUnique
     };
   }
 };
