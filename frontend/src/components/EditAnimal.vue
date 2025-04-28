@@ -133,9 +133,10 @@
         </div>
         
         <!-- Существующие изображения -->
-        <div v-if="existingImages.length > 0" class="existing-images-section">
-          <h3>Текущие изображения:</h3>
+        <div v-if="existingImages.length > 0 || previewImages.length > 0" class="existing-images-section">
+          <h3>Изображения:</h3>
           <div class="preview-gallery">
+            <!-- Существующие изображения -->
             <div 
               v-for="(image, index) in existingImages" 
               :key="`existing-${index}`" 
@@ -143,7 +144,7 @@
             >
               <img 
                 :src="getImageUrl(image.photo_id)" 
-                alt="Существующее изображение" 
+                alt="Изображение" 
                 class="gallery-image"
                 @click="openImagePreview(image.photo_id)"
                 @error="handleImageError"
@@ -151,6 +152,22 @@
               <button 
                 type="button" 
                 @click="removeExistingImage(index)" 
+                class="remove-gallery-image-button"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <!-- Новые изображения в той же галерее -->
+            <div 
+              v-for="(image, index) in previewImages" 
+              :key="`new-${index}`" 
+              class="gallery-item"
+            >
+              <img :src="image.preview" alt="Предпросмотр изображения" class="gallery-image" />
+              <button 
+                type="button" 
+                @click="removeImage(index)" 
                 class="remove-gallery-image-button"
               >
                 &times;
@@ -174,25 +191,6 @@
             </div>
           </label>
           <span class="file-format-info">JPEG, PNG, WEBP до 4 МБ</span>
-          
-          <!-- Предварительный просмотр новых изображений -->
-          <div v-if="previewImages.length" class="preview-gallery">
-            <h3>Новые изображения:</h3>
-            <div 
-              v-for="(image, index) in previewImages" 
-              :key="`new-${index}`" 
-              class="gallery-item"
-            >
-              <img :src="image.preview" alt="Предпросмотр изображения" class="gallery-image" />
-              <button 
-                type="button" 
-                @click="removeImage(index)" 
-                class="remove-gallery-image-button"
-              >
-                &times;
-              </button>
-            </div>
-          </div>
         </div>
         
         <!-- Информация о текущем видео и возможность просмотра -->
@@ -1218,12 +1216,14 @@ export default {
   margin-bottom: 10px;
   font-weight: 500;
   color: #333;
+  text-align: center; /* Центрируем заголовок */
 }
 
 .preview-gallery {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  justify-content: center; /* Центрируем элементы в галерее */
 }
 
 .gallery-item {
