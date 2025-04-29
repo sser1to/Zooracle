@@ -178,18 +178,18 @@
         <!-- Кнопки управления формой -->
         <div class="form-buttons">
           <button 
-            type="button" 
-            @click="$router.push('/')" 
-            class="cancel-button"
-          >
-            Отмена
-          </button>
-          <button 
             type="submit" 
             class="submit-button"
             :disabled="isSubmitting"
           >
             {{ isSubmitting ? 'Добавление...' : 'Добавить' }}
+          </button>
+          <button 
+            type="button" 
+            @click="$router.push('/')" 
+            class="cancel-button"
+          >
+            Отмена
           </button>
         </div>
       </form>
