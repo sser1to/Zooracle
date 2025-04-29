@@ -54,8 +54,10 @@ class Animal(Base):
     animal_type = relationship("AnimalType", back_populates="animals")
     habitat = relationship("Habitat", back_populates="animals")
     test = relationship("Test", back_populates="animals")
-    photos = relationship("AnimalPhoto", back_populates="animal")
-    favorite_animals = relationship("FavoriteAnimal", back_populates="animal")
+    # Добавляем cascade="all, delete-orphan" для автоматического удаления связанных фотографий
+    photos = relationship("AnimalPhoto", back_populates="animal", cascade="all, delete-orphan")
+    # Также добавляем cascade для избранных животных
+    favorite_animals = relationship("FavoriteAnimal", back_populates="animal", cascade="all, delete-orphan")
 
 
 class AnswerOption(Base):

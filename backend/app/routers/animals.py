@@ -16,6 +16,14 @@ from ..schemas import (
     FavoriteAnimalResponse
 )
 from ..services.auth_service import get_current_user, get_current_admin_user
+from ..services.minio_service import delete_files_by_ids
+
+# Определяем возможные расширения для изображений и видео
+ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"]
+ALLOWED_VIDEO_EXTENSIONS = [".mp4", ".avi"]
+
+# Категории файлов
+FILE_CATEGORIES = ["images", "videos"]
 
 router = APIRouter()
 
@@ -193,12 +201,55 @@ async def delete_animal(
         raise HTTPException(status_code=404, detail="Животное не найдено")
     
     try:
+        # Собираем все идентификаторы файлов для удаления с вариантами путей в MinIO
+        file_patterns_to_delete = []
+        
+        # Добавляем все возможные варианты пути для обложки
+        if db_animal.preview_id:
+            # Обложка обычно хранится как изображение
+            for ext in ALLOWED_IMAGE_EXTENSIONS:
+                for category in FILE_CATEGORIES:
+                    file_patterns_to_delete.append(f"{category}/{db_animal.preview_id}{ext}")
+        
+        # Добавляем все возможные варианты пути для видео
+        if db_animal.video_id:
+            # Видео файлы
+            for ext in ALLOWED_VIDEO_EXTENSIONS:
+                file_patterns_to_delete.append(f"videos/{db_animal.video_id}{ext}")
+            # На всякий случай проверяем также и в папке с изображениями
+            for ext in ALLOWED_VIDEO_EXTENSIONS:
+                file_patterns_to_delete.append(f"images/{db_animal.video_id}{ext}")
+        
+        # Получаем и добавляем все возможные варианты путей для фотографий
+        photos = db.query(AnimalPhoto).filter(AnimalPhoto.animal_id == animal_id).all()
+        for photo in photos:
+            if photo.photo_id:
+                for ext in ALLOWED_IMAGE_EXTENSIONS:
+                    file_patterns_to_delete.append(f"images/{photo.photo_id}{ext}")
+        
+        print(f"Всего путей для поиска и удаления файлов: {len(file_patterns_to_delete)}")
+        print(f"Пути для удаления: {file_patterns_to_delete}")
+        
+        # Удаляем животное из базы данных
         db.delete(db_animal)
         db.commit()
-        return {"message": "Животное успешно удалено"}
+        
+        # Удаляем все связанные файлы из MinIO после успешного удаления из БД
+        if file_patterns_to_delete:
+            deletion_result = await delete_files_by_ids(file_patterns_to_delete)
+            print(f"Результат удаления файлов из MinIO: {deletion_result}")
+        
+        return {"message": "Животное и все связанные с ним файлы успешно удалены"}
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Ошибка при удалении животного: {str(e)}")
+    except Exception as e:
+        # В случае ошибки при удалении файлов, животное уже удалено из БД,
+        # но мы возвращаем информацию об ошибке при удалении файлов
+        return {
+            "message": "Животное удалено, но возникли проблемы при удалении некоторых файлов",
+            "error": str(e)
+        }
 
 # Маршруты для работы с фотографиями животных
 
@@ -290,12 +341,29 @@ async def delete_animal_photo(
         raise HTTPException(status_code=404, detail="Фото не найдено")
     
     try:
+        # Формируем все возможные пути файла в MinIO
+        file_patterns_to_delete = []
+        for ext in ALLOWED_IMAGE_EXTENSIONS:
+            file_patterns_to_delete.append(f"images/{photo_id}{ext}")
+            
+        # Удаляем запись из базы данных
         db.delete(photo)
         db.commit()
+        
+        # Удаляем файл из MinIO
+        if file_patterns_to_delete:
+            deletion_result = await delete_files_by_ids(file_patterns_to_delete)
+            print(f"Результат удаления файла из MinIO: {deletion_result}")
+            
         return {"message": "Фото успешно удалено"}
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Ошибка при удалении фото: {str(e)}")
+    except Exception as e:
+        return {
+            "message": "Запись о фото удалена, но возникли проблемы при удалении файла",
+            "error": str(e)
+        }
 
 # Маршруты для работы с избранными животными
 

@@ -113,10 +113,128 @@ def delete_file(bucket_name: str, file_name: str):
         Exception: При ошибке удаления файла
     """
     try:
+        # Проверяем существование бакета
+        if not minio_client.bucket_exists(bucket_name):
+            print(f"Бакет {bucket_name} не существует")
+            return False
+            
+        # Проверяем существование файла
+        try:
+            minio_client.stat_object(bucket_name, file_name)
+        except S3Error as e:
+            if "code: NoSuchKey" in str(e) or "Object does not exist" in str(e):
+                print(f"Файл {file_name} не найден в бакете {bucket_name}")
+                return False
+            # Пробрасываем остальные ошибки
+            raise
+            
+        # Удаляем файл
         minio_client.remove_object(bucket_name, file_name)
+        print(f"Файл {file_name} успешно удален из бакета {bucket_name}")
         return True
     except S3Error as e:
+        print(f"Ошибка S3 при удалении файла {file_name}: {str(e)}")
         raise Exception(f"Ошибка при удалении файла из MinIO: {e}")
+    except Exception as e:
+        print(f"Непредвиденная ошибка при удалении файла {file_name}: {str(e)}")
+        raise Exception(f"Непредвиденная ошибка при удалении файла: {str(e)}")
+
+async def delete_files_by_ids(file_ids: list, bucket_name: str = MINIO_BUCKET_NAME) -> dict:
+    """
+    Удаляет группу файлов из MinIO по их идентификаторам или полным путям
+    
+    Args:
+        file_ids (list): Список идентификаторов файлов или полных путей для удаления
+        bucket_name (str, optional): Имя бакета. По умолчанию используется MINIO_BUCKET_NAME.
+        
+    Returns:
+        dict: Отчет о результатах удаления (количество успешных/неудачных удалений)
+        
+    Raises:
+        Exception: При критической ошибке процесса удаления
+    """
+    if not file_ids:
+        print("Нет файлов для удаления")
+        return {"success": 0, "failed": 0, "message": "Нет файлов для удаления"}
+    
+    # Проверяем наличие бакета
+    try:
+        if not minio_client.bucket_exists(bucket_name):
+            print(f"Бакет {bucket_name} не существует")
+            return {
+                "success": 0, 
+                "failed": len(file_ids), 
+                "message": f"Бакет {bucket_name} не существует",
+                "failed_ids": file_ids
+            }
+    except Exception as e:
+        print(f"Ошибка при проверке существования бакета {bucket_name}: {str(e)}")
+        return {
+            "success": 0, 
+            "failed": len(file_ids), 
+            "message": f"Ошибка при проверке существования бакета: {str(e)}",
+            "failed_ids": file_ids
+        }
+    
+    success_count = 0
+    failed_count = 0
+    failed_ids = []
+    success_ids = []
+    
+    print(f"Начинаем удаление {len(file_ids)} файлов из бакета {bucket_name}")
+    
+    # Перебираем все ID файлов и пытаемся их удалить
+    for file_id in file_ids:
+        if not file_id:
+            print("Пропускаем пустой идентификатор файла")
+            continue
+            
+        try:
+            # Проверяем существование объекта в MinIO
+            object_name = file_id  # Может быть как просто ID, так и полный путь (category/id.ext)
+            
+            try:
+                minio_client.stat_object(bucket_name, object_name)
+                exists = True
+                print(f"Объект '{object_name}' найден в бакете {bucket_name}")
+            except S3Error as se:
+                if "code: NoSuchKey" in str(se) or "Object does not exist" in str(se):
+                    exists = False
+                    print(f"Объект '{object_name}' не найден в бакете {bucket_name}")
+                else:
+                    # Пробрасываем другие S3 ошибки
+                    raise
+            
+            # Если файл существует, удаляем его
+            if exists:
+                minio_client.remove_object(bucket_name, object_name)
+                print(f"Объект '{object_name}' успешно удален из бакета {bucket_name}")
+                success_count += 1
+                success_ids.append(object_name)
+            else:
+                failed_count += 1
+                failed_ids.append(object_name)
+                print(f"Не удалось удалить объект '{object_name}': файл не существует в бакете")
+                
+        except Exception as e:
+            failed_count += 1
+            failed_ids.append(file_id)
+            print(f"Ошибка при удалении объекта '{file_id}': {str(e)}")
+    
+    result = {
+        "success": success_count,
+        "failed": failed_count,
+        "message": f"Удалено {success_count} из {len(file_ids)} файлов"
+    }
+    
+    if success_count > 0:
+        result["success_ids"] = success_ids
+    
+    if failed_count > 0:
+        result["failed_ids"] = failed_ids
+        
+    print(f"Результат удаления файлов: {result}")
+    return result
 
 async def upload_file_to_minio(file_path: str, object_name: str, bucket_name: str = MINIO_BUCKET_NAME) -> bool:
     """

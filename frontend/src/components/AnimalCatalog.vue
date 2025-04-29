@@ -632,6 +632,7 @@ export default {
   padding-right: 10px; /* Отступ справа для полосы прокрутки */
   padding-top: 15px; /* Отступ сверху */
   padding-left: 10px; /* Добавляем отступ слева для симметрии */
+  padding-bottom: 15px;
   
   /* Стилизация полосы прокрутки для современных браузеров */
   scrollbar-width: thin; /* Для Firefox */
