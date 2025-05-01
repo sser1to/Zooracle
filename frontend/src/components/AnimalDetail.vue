@@ -14,8 +14,35 @@
     <div v-else-if="animal" class="animal-content">
       <!-- Левая колонка с основной информацией и видео -->
       <div class="left-column">
-        <!-- Заголовок и основная информация -->
-        <h1 class="animal-title">{{ animal.name }}</h1>
+        <!-- Заголовок с кнопками действий -->
+        <div class="title-container">
+          <h1 class="animal-title">{{ animal.name }}</h1>
+          
+          <!-- Кнопка редактирования для администраторов -->
+          <router-link 
+            v-if="isAdmin" 
+            :to="`/edit-animal/${animal.id}`" 
+            class="action-button edit-button"
+            title="Редактировать"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="edit-icon">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+          </router-link>
+          
+          <!-- Кнопка избранного для обычных пользователей -->
+          <button 
+            v-if="!isAdmin"
+            class="action-button favorite-button" 
+            @click="toggleFavorite"
+            :class="{ 'is-favorite': isFavorite }"
+            :title="isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="heart-icon">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </button>
+        </div>
         
         <!-- Основная информация -->
         <div class="info-block">
@@ -39,11 +66,11 @@
         <!-- Секция с видео, если оно есть -->
         <div v-if="animal.video_id" class="video-block">
           <div class="video-container">
-            <video controls class="animal-video">
+            <video controls class="animal-video" @play="isVideoPlaying = true" @pause="isVideoPlaying = false">
               <source :src="getVideoUrl(animal.video_id)" type="video/mp4">
               Ваш браузер не поддерживает видео.
             </video>
-            <div class="play-button" @click="playVideo">
+            <div v-if="!isVideoPlaying" class="play-button" @click="playVideo">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#ffffff" width="48px" height="48px">
                 <path d="M8 5v14l11-7z"/>
               </svg>
@@ -54,12 +81,17 @@
       
       <!-- Правая колонка с изображениями и тестом -->
       <div class="right-column">
-        <!-- Основное изображение -->
+        <!-- Основное изображение с индикатором загрузки -->
         <div class="main-image-container">
+          <!-- Индикатор загрузки изображения -->
+          <div v-if="imageLoading" class="image-loading-overlay">
+            <div class="spinner"></div>
+          </div>
           <img 
             :src="getImageUrl(currentImageId)" 
             :alt="animal.name" 
             @error="handleImageError"
+            @load="handleImageLoaded"
             class="main-image"
           />
         </div>
@@ -67,16 +99,21 @@
         <!-- Галерея миниатюр -->
         <div v-if="animal.photos && animal.photos.length > 0" class="thumbnails-container">
           <div 
-            v-for="(photo, index) in displayPhotos" 
+            v-for="photo in displayPhotos" 
             :key="photo.id" 
             class="thumbnail-item"
             @click="setMainImage(photo.photo_id)"
             :class="{ 'active': photo.photo_id === currentImageId }"
           >
+            <!-- Индикатор загрузки миниатюры -->
+            <div v-if="!thumbnailsLoaded[photo.photo_id]" class="thumbnail-loading">
+              <div class="thumbnail-spinner"></div>
+            </div>
             <img 
               :src="getImageUrl(photo.photo_id)" 
-              :alt="`${animal.name} - изображение ${index + 1}`" 
+              :alt="animal.name"
               @error="handleImageError"
+              @load="() => handleThumbnailLoaded(photo.photo_id)"
               class="thumbnail-image"
             />
           </div>
@@ -101,7 +138,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, reactive, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -110,6 +147,7 @@ import axios from 'axios';
  * @component
  * @description Отображает подробную информацию о животном в двухколоночном макете согласно дизайну
  * @author Zooracle Team
+ * @date 2 мая 2023 г.
  */
 export default {
   name: 'AnimalDetail',
@@ -121,8 +159,23 @@ export default {
     const loading = ref(true);
     const error = ref('');
     const currentImageId = ref(null);
+    const imageLoading = ref(false); // Состояние загрузки основного изображения
+    const thumbnailsLoaded = reactive({}); // Хранит состояние загрузки каждой миниатюры
+    const favorites = ref([]); // Массив ID животных в избранном
+    const isAdmin = ref(false); // Статус администратора пользователя
+    const isVideoPlaying = ref(false); // Состояние воспроизведения видео
+    
     const route = useRoute();
     const apiBase = 'http://localhost:8000/api';
+    
+    /**
+     * Проверяет, находится ли текущее животное в избранном
+     * @type {import('vue').ComputedRef<boolean>}
+     */
+    const isFavorite = computed(() => {
+      if (!animal.value) return false;
+      return favorites.value.includes(animal.value.id);
+    });
     
     /**
      * Вычисляемое свойство для получения фотографий для отображения в галерее
@@ -146,6 +199,41 @@ export default {
     });
     
     /**
+     * Проверяет статус администратора пользователя
+     */
+    const checkAdminStatus = () => {
+      try {
+        // Получаем данные пользователя из localStorage
+        const userData = localStorage.getItem('user');
+        if (!userData) return;
+        
+        const user = JSON.parse(userData);
+        // Устанавливаем флаг администратора на основе данных пользователя
+        isAdmin.value = user && user.is_admin === true;
+        
+        console.log('Статус администратора:', isAdmin.value);
+      } catch (err) {
+        console.error('Ошибка при проверке статуса администратора:', err);
+        // Если произошла ошибка, сбрасываем флаг
+        isAdmin.value = false;
+      }
+    };
+    
+    /**
+     * Загружает избранные животные пользователя
+     * @async
+     */
+    const loadFavorites = async () => {
+      try {
+        const response = await axios.get(`${apiBase}/animals/favorites/`);
+        favorites.value = response.data.map(animal => animal.id);
+      } catch (err) {
+        console.error('Ошибка при загрузке избранных животных:', err);
+        // Не показываем ошибку пользователю, т.к. это не критичная информация
+      }
+    };
+    
+    /**
      * Загружает данные о животном из API
      * @async
      * @function loadAnimalData
@@ -161,6 +249,7 @@ export default {
       try {
         loading.value = true;
         error.value = '';
+        imageLoading.value = true; // Начинаем загрузку изображений
         
         const response = await axios.get(`${apiBase}/animals/${animalId}`);
         animal.value = response.data;
@@ -175,11 +264,45 @@ export default {
         // Устанавливаем заголовок страницы
         document.title = `${animal.value.name} - Zooracle`;
         
+        // Предварительно загружаем миниатюры
+        preloadImages();
+        
       } catch (err) {
         console.error('Ошибка при загрузке данных о животном:', err);
         error.value = 'Не удалось загрузить информацию о животном';
       } finally {
         loading.value = false;
+      }
+    };
+    
+    /**
+     * Предварительно загружает все изображения для ускорения отображения
+     */
+    const preloadImages = () => {
+      if (!animal.value) return;
+      
+      // Отмечаем все изображения как не загруженные
+      thumbnailsLoaded.value = {};
+      
+      // Предварительно загружаем основное изображение
+      if (animal.value.preview_id) {
+        const img = new Image();
+        img.src = getImageUrl(animal.value.preview_id);
+      }
+      
+      // Предварительно загружаем все миниатюры
+      if (animal.value.photos && animal.value.photos.length > 0) {
+        animal.value.photos.forEach(photo => {
+          thumbnailsLoaded[photo.photo_id] = false;
+          const img = new Image();
+          img.src = getImageUrl(photo.photo_id);
+          img.onload = () => {
+            thumbnailsLoaded[photo.photo_id] = true;
+          };
+          img.onerror = () => {
+            thumbnailsLoaded[photo.photo_id] = true; // Помечаем как загруженное даже при ошибке
+          };
+        });
       }
     };
     
@@ -208,11 +331,37 @@ export default {
     };
     
     /**
+     * Обработчик успешной загрузки основного изображения
+     */
+    const handleImageLoaded = () => {
+      imageLoading.value = false;
+    };
+    
+    /**
+     * Обработчик успешной загрузки миниатюры
+     * @param {string} photoId - ID фото
+     */
+    const handleThumbnailLoaded = (photoId) => {
+      thumbnailsLoaded[photoId] = true;
+    };
+    
+    /**
      * Обработчик ошибок при загрузке изображений
      * @param {Event} e - Событие ошибки
      */
     const handleImageError = (e) => {
       e.target.src = '/placeholder.jpg'; // Заменяем на заглушку
+      
+      // Скрываем индикатор загрузки
+      if (e.target.classList.contains('main-image')) {
+        imageLoading.value = false;
+      }
+      
+      // Если это миниатюра, помечаем её как загруженную
+      const photoId = e.target.getAttribute('data-photo-id');
+      if (photoId) {
+        thumbnailsLoaded[photoId] = true;
+      }
     };
     
     /**
@@ -220,7 +369,10 @@ export default {
      * @param {string} photoId - ID изображения
      */
     const setMainImage = (photoId) => {
-      currentImageId.value = photoId;
+      if (currentImageId.value !== photoId) {
+        imageLoading.value = true; // Показываем индикатор загрузки
+        currentImageId.value = photoId;
+      }
     };
     
     /**
@@ -230,11 +382,32 @@ export default {
       const video = document.querySelector('.animal-video');
       if (video) {
         video.play();
-        // Скрываем кнопку воспроизведения после начала проигрывания
-        const playButton = document.querySelector('.play-button');
-        if (playButton) {
-          playButton.style.display = 'none';
+      }
+    };
+    
+    /**
+     * Переключает статус избранного для текущего животного
+     * @async
+     */
+    const toggleFavorite = async () => {
+      if (!animal.value) return;
+      
+      try {
+        const isFav = isFavorite.value;
+        
+        if (isFav) {
+          // Удаляем из избранного
+          await axios.delete(`${apiBase}/animals/favorites/${animal.value.id}`);
+          favorites.value = favorites.value.filter(id => id !== animal.value.id);
+        } else {
+          // Добавляем в избранное
+          await axios.post(`${apiBase}/animals/favorites/`, {
+            animal_id: animal.value.id
+          });
+          favorites.value.push(animal.value.id);
         }
+      } catch (err) {
+        console.error('Ошибка при обновлении избранного:', err);
       }
     };
     
@@ -269,6 +442,12 @@ export default {
         return config;
       });
       
+      // Проверяем статус администратора
+      checkAdminStatus();
+      
+      // Загружаем избранные животные
+      loadFavorites();
+      
       // Загружаем данные о животном
       loadAnimalData();
     });
@@ -278,13 +457,21 @@ export default {
       loading,
       error,
       currentImageId,
+      imageLoading,
+      thumbnailsLoaded,
       displayPhotos,
+      isAdmin,
+      isFavorite,
+      isVideoPlaying,
       loadAnimalData,
       getImageUrl,
       getVideoUrl,
       handleImageError,
+      handleImageLoaded,
+      handleThumbnailLoaded,
       setMainImage,
       playVideo,
+      toggleFavorite,
       goToTest
     };
   }
@@ -327,11 +514,18 @@ export default {
   gap: 15px;
 }
 
+/* Заголовок с кнопками действий */
+.title-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 /* Стили для заголовка */
 .animal-title {
   font-size: 32px;
   font-weight: bold;
-  margin: 0 0 10px 0;
+  margin: 0;
   color: #333;
   text-align: left;
 }
@@ -432,17 +626,35 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  z-index: 2;
+  transition: background-color 0.3s;
+  z-index: 3;
+}
+
+.play-button:hover {
+  background-color: rgba(0, 0, 0, 0.7);
 }
 
 /* Основное изображение */
 .main-image-container {
+  position: relative;
   width: 100%;
   aspect-ratio: 1 / 1; /* Квадратное соотношение как на макете */
   border: 1px solid #8BC34A; /* Зеленая рамка как на макете */
   border-radius: 4px;
   overflow: hidden;
+}
+
+.image-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(245, 245, 245, 0.7);
+  z-index: 5;
 }
 
 .main-image {
@@ -459,11 +671,34 @@ export default {
 }
 
 .thumbnail-item {
+  position: relative;
   aspect-ratio: 1 / 1;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
+}
+
+.thumbnail-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(245, 245, 245, 0.7);
+  z-index: 3;
+}
+
+.thumbnail-spinner {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top: 2px solid #8BC34A;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
 }
 
 .thumbnail-item.active {
@@ -497,6 +732,46 @@ export default {
 
 .test-button:hover {
   background-color: #7CB342;
+}
+
+/* Кнопки избранного и редактирования */
+.action-button {
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 8px;
+  box-sizing: border-box;
+  transition: background-color 0.3s;
+  z-index: 10;
+  text-decoration: none;
+}
+
+.action-button:hover {
+  background-color: white;
+}
+
+.heart-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: #ff4081;
+  stroke-width: 2;
+}
+
+.favorite-button.is-favorite .heart-icon {
+  fill: #ff4081;
+}
+
+.edit-icon {
+  width: 20px;
+  height: 20px;
+  fill: #2196F3;
 }
 
 /* Нижняя навигационная панель */
