@@ -106,19 +106,21 @@
         
         <!-- Загрузка изображений -->
         <div class="file-upload-section">
-          <label class="file-upload-button">
+          <label class="file-upload-button" :class="{ 'disabled': previewImages.length >= MAX_IMAGES }">
             <input 
               type="file" 
               @change="handleImagesUpload" 
               accept="image/jpeg, image/png, image/webp"
               multiple
+              :disabled="previewImages.length >= MAX_IMAGES"
             />
             <div class="upload-button-content">
               <span class="icon">📎</span>
               Загрузите изображения
+              <span v-if="previewImages.length >= MAX_IMAGES" class="limit-indicator">(лимит достигнут)</span>
             </div>
           </label>
-          <span class="file-format-info">JPEG, PNG, WEBP до 4 МБ</span>
+          <span class="file-format-info">JPEG, PNG, WEBP до 4 МБ (максимум {{ MAX_IMAGES }} изображений)</span>
           
           <!-- Предварительный просмотр изображений -->
           <div v-if="previewImages.length" class="preview-gallery">
@@ -136,6 +138,11 @@
                 &times;
               </button>
             </div>
+          </div>
+          
+          <!-- Счетчик изображений -->
+          <div v-if="previewImages.length > 0" class="images-counter">
+            Загружено изображений: {{ previewImages.length }} из {{ MAX_IMAGES }}
           </div>
         </div>
         
@@ -213,6 +220,9 @@ export default {
     // Константы и настройки
     const apiBase = 'http://localhost:8000/api';
     const router = useRouter();
+    
+    // Константа для максимального количества дополнительных изображений
+    const MAX_IMAGES = 3;
     
     // Реактивные переменные состояния
     const animalTypes = ref([]);
@@ -333,6 +343,12 @@ export default {
       const files = Array.from(event.target.files);
       if (!files.length) return;
       
+      // Проверяем, не превышен ли лимит загрузки изображений
+      if (selectedImages.value.length + files.length > MAX_IMAGES) {
+        error.value = `Превышен лимит загрузки изображений. Максимум ${MAX_IMAGES} изображений.`;
+        return;
+      }
+      
       // Обрабатываем каждый файл
       files.forEach(file => {
         // Проверка на размер файла (4MB)
@@ -348,6 +364,11 @@ export default {
           preview: URL.createObjectURL(file)
         });
       });
+      
+      // Сбрасываем ошибку, если после обработки файлов её не возникло
+      if (error.value.includes('Превышен лимит') && selectedImages.value.length <= MAX_IMAGES) {
+        error.value = '';
+      }
     };
     
     /**
@@ -631,7 +652,8 @@ export default {
       removeImage,
       handleVideoUpload,
       removeVideo,
-      submitForm
+      submitForm,
+      MAX_IMAGES
     };
   }
 };
@@ -898,6 +920,32 @@ export default {
   color: #ff5252;
   font-size: 14px;
   margin-top: 5px;
+}
+
+/* Стиль для неактивной кнопки загрузки файлов */
+.file-upload-button.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.file-upload-button.disabled .upload-button-content {
+  background-color: #e0e0e0;
+  color: #888;
+}
+
+/* Стиль для индикатора достигнутого лимита */
+.limit-indicator {
+  font-size: 12px;
+  color: #ff5252;
+  margin-left: 8px;
+}
+
+/* Стиль для счетчика изображений */
+.images-counter {
+  font-size: 14px;
+  color: #666;
+  margin-top: 8px;
+  text-align: center;
 }
 </style>
 
