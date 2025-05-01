@@ -119,17 +119,23 @@
     <!-- Каталог животных (с прокруткой) -->
     <div v-if="!loading && !error && animals.length > 0" class="animals-grid">
       <div v-for="animal in animals" :key="animal.id" class="animal-card">
-        <div class="animal-image">
-          <img 
-            :src="getImageUrl(animal.preview_id)" 
-            :alt="animal.name" 
-            @error="handleImageError"
-            class="animal-img"
-          />
-        </div>
-        <div class="animal-info">
-          <h3 class="animal-name">{{ animal.name }}</h3>
-        </div>
+        <!-- Оборачиваем карточку в router-link для перехода на страницу деталей -->
+        <router-link 
+          :to="`/animal/${animal.id}`" 
+          class="animal-card-link"
+        >
+          <div class="animal-image">
+            <img 
+              :src="getImageUrl(animal.preview_id)" 
+              :alt="animal.name" 
+              @error="handleImageError"
+              class="animal-img"
+            />
+          </div>
+          <div class="animal-info">
+            <h3 class="animal-name">{{ animal.name }}</h3>
+          </div>
+        </router-link>
         
         <!-- Кнопка редактирования для администраторов -->
         <router-link 
@@ -782,6 +788,13 @@ h1 {
 .animal-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Стили для ссылки на детальную страницу */
+.animal-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
 }
 
 .animal-image {
