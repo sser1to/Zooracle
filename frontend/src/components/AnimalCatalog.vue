@@ -86,7 +86,7 @@
           </div>
         </div>
 
-        <div class="filter-group favorites-filter">
+        <div class="filter-group favorites-filter" v-if="!isAdmin">
           <label class="favorite-toggle">
             <input 
               type="checkbox" 
@@ -97,6 +97,17 @@
           </label>
         </div>
       </div>
+    </div>
+
+    <!-- Информация о количестве найденных видов -->
+    <div class="animals-count" v-if="!loading && !error">
+      <span>Найдено видов животных: {{ animals.length }}</span>
+      <a 
+        v-if="isAnyFilterActive" 
+        href="#" 
+        class="reset-filters-link" 
+        @click.prevent="resetAllFilters"
+      >Сбросить фильтры</a>
     </div>
 
     <!-- Сообщение о загрузке -->
@@ -166,7 +177,7 @@
 </template>
 
 <script>
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
+import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue';
 import axios from 'axios';
 import { useRoute } from 'vue-router';
 
@@ -441,6 +452,34 @@ export default {
     };
     
     /**
+     * Сбрасывает все фильтры к значениям по умолчанию
+     */
+    const resetAllFilters = () => {
+      searchQuery.value = '';
+      selectedClassId.value = null;
+      selectedHabitatId.value = null;
+      sortBy.value = 'name';
+      sortOrder.value = 'asc';
+      showFavorites.value = false;
+      loadAnimals();
+    };
+    
+    /**
+     * Проверяет, активен ли какой-либо фильтр
+     * @returns {boolean} true если активен хотя бы один фильтр
+     */
+    const isAnyFilterActive = computed(() => {
+      return (
+        searchQuery.value !== '' ||
+        selectedClassId.value !== null ||
+        selectedHabitatId.value !== null ||
+        showFavorites.value === true ||
+        sortBy.value !== 'name' ||
+        sortOrder.value !== 'asc'
+      );
+    });
+    
+    /**
      * Настраивает автоматическое обновление списка животных
      * Запускается при возвращении с формы добавления животного
      */
@@ -581,7 +620,9 @@ export default {
       getSortLabel,
       getClassLabel,
       getHabitatLabel,
-      debouncedSearch
+      debouncedSearch,
+      resetAllFilters,
+      isAnyFilterActive
     };
   }
 }
@@ -856,6 +897,28 @@ h1 {
 
 .favorite-button.is-favorite .heart-icon {
   fill: #ff4081;
+}
+
+/* Стили для блока с количеством найденных видов */
+.animals-count {
+  margin: 0 0 15px 5px;
+  font-size: 14px;
+}
+
+.animals-count span {
+  color: #555; /* Темно-серый цвет текста */
+}
+
+.reset-filters-link {
+  margin-left: 10px;
+  color: #4CAF50;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.reset-filters-link:hover {
+  text-decoration: underline;
 }
 
 /* Стили для загрузки и сообщений об ошибках */
