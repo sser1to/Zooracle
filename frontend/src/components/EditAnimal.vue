@@ -248,7 +248,7 @@
             />
             <div class="upload-button-content">
               <span class="icon">📎</span>
-              Заменить видео
+              {{ currentVideoId || selectedVideo ? 'Заменить видео' : 'Загрузить видео' }}
             </div>
           </label>
           <span class="file-format-info">MP4, AVI до 1 ГБ</span>
