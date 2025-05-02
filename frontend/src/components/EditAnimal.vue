@@ -202,39 +202,24 @@
           <span class="file-format-info">JPEG, PNG, WEBP до 4 МБ (максимум {{ MAX_IMAGES }} изображений)</span>
         </div>
         
-        <!-- Информация о текущем видео и возможность просмотра -->
+        <!-- Информация о текущем видео и видеоплеер -->
         <div v-if="currentVideoId" class="existing-video-section">
           <h3>Текущее видео:</h3>
           <div class="current-video-info">
-            <div class="video-controls-wrapper">
-              <button 
-                type="button"
-                @click="openVideoPreview"
-                class="play-video-button"
-              >
-                Просмотреть
-              </button>
-              <button 
-                type="button" 
-                @click="removeCurrentVideo" 
-                class="remove-video-button"
-              >
-                Удалить
-              </button>
+            <!-- Встроенный видеоплеер вместо кнопки просмотра -->
+            <div class="embedded-video-player">
+              <video controls class="embedded-player">
+                <source :src="getVideoUrl(currentVideoId)" type="video/mp4">
+                Ваш браузер не поддерживает видео.
+              </video>
             </div>
-          </div>
-          
-          <!-- Предпросмотр видео в модальном окне -->
-          <div v-if="showVideoPreview" class="video-modal" @click="closeVideoPreview">
-            <div class="video-modal-content" @click.stop>
-              <button @click="closeVideoPreview" class="close-modal">&times;</button>
-              <div class="video-container">
-                <video controls class="video-player">
-                  <source :src="getVideoUrl(currentVideoId)" type="video/mp4">
-                  Ваш браузер не поддерживает видео.
-                </video>
-              </div>
-            </div>
+            <button 
+              type="button" 
+              @click="removeCurrentVideo" 
+              class="remove-video-button"
+            >
+              Удалить
+            </button>
           </div>
         </div>
         
@@ -1383,21 +1368,39 @@ export default {
   color: #333;
 }
 
-/* Центрирование кнопок видео */
-.video-controls-wrapper {
-  display: flex;
-  justify-content: center;
+/* Стили для встроенного видеоплеера */
+.embedded-video-player {
   width: 100%;
+  max-width: 640px;
+  margin: 0 auto 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
 }
 
+.embedded-player {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+
+/* Центрирование кнопок видео */
 .current-video-info,
 .selected-video-info {
   margin-top: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   gap: 10px;
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .embedded-video-player {
+    max-width: 100%;
+  }
 }
 
 /* Стили сообщений об ошибках */
