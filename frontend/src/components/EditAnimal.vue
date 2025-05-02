@@ -203,7 +203,7 @@
         </div>
         
         <!-- Информация о текущем видео и видеоплеер -->
-        <div v-if="currentVideoId" class="existing-video-section">
+        <div v-if="currentVideoId && !selectedVideo" class="existing-video-section">
           <h3>Текущее видео:</h3>
           <div class="current-video-info">
             <!-- Встроенный видеоплеер вместо кнопки просмотра -->
@@ -222,6 +222,21 @@
             </button>
           </div>
         </div>
+
+        <!-- Название выбранного видеофайла (показывается только при выборе нового видео) -->
+        <div v-if="selectedVideo" class="selected-video-info">
+          <h3>Новое видео:</h3>
+          <div class="video-file-info">
+            <span class="selected-video-name">{{ selectedVideo.name }}</span>
+            <button 
+              type="button" 
+              @click="removeVideo" 
+              class="remove-video-button"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
         
         <!-- Загрузка нового видео -->
         <div class="file-upload-section">
@@ -233,22 +248,10 @@
             />
             <div class="upload-button-content">
               <span class="icon">📎</span>
-              {{ currentVideoId && !removeVideoFlag ? 'Заменить видео' : 'Загрузить видео' }}
+              Заменить видео
             </div>
           </label>
           <span class="file-format-info">MP4, AVI до 1 ГБ</span>
-          
-          <!-- Название выбранного видеофайла -->
-          <div v-if="selectedVideo" class="selected-video-info">
-            <span>{{ selectedVideo.name }}</span>
-            <button 
-              type="button" 
-              @click="removeVideo" 
-              class="remove-video-button"
-            >
-              Отменить
-            </button>
-          </div>
         </div>
         
         <!-- Модальное окно просмотра изображения -->
@@ -375,7 +378,8 @@ export default {
       name: '',
       animal_type_id: '',
       habitat_id: '',
-      description: ''
+      description: '',
+      video_id: null // Добавляем поле для хранения ID видео
     });
     
     // Файлы и предпросмотры для новых загружаемых файлов
@@ -613,6 +617,7 @@ export default {
         animalData.description = animal.description;
         animalData.animal_type_id = animal.animal_type_id;
         animalData.habitat_id = animal.habitat_id;
+        animalData.video_id = animal.video_id; // Загружаем ID видео
         
         // Сохраняем ID обложки
         currentPreviewId.value = animal.preview_id;
@@ -815,14 +820,23 @@ export default {
     
     /**
      * Удаляет выбранное видео
+     * @description При нажатии кнопки "Отмена" восстанавливает предыдущее видео с плеером
      */
     const removeVideo = () => {
+      // Очищаем выбранное новое видео
       selectedVideo.value = null;
       
-      // Если не было выбрано новое видео для замены, восстанавливаем текущее
-      if (removeVideoFlag.value && !selectedVideo.value) {
+      // При отмене загрузки нового видео восстанавливаем исходный ID видео из данных животного
+      if (removeVideoFlag.value) {
+        // Восстанавливаем ID видео из загруженных данных животного
+        const originalVideoId = animalData.video_id;
+        
+        // Сбрасываем флаг удаления и восстанавливаем ID для отображения плеера
         removeVideoFlag.value = false;
-        currentVideoId.value = animalData.video_id;
+        currentVideoId.value = originalVideoId;
+        
+        // Логируем действие для отладки
+        console.log('Восстановлено исходное видео с ID:', originalVideoId);
       }
     };
     
