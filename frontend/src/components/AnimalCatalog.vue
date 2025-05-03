@@ -54,6 +54,15 @@
             {{ getClassLabel() }} <span class="arrow">▼</span>
           </button>
           <div class="dropdown-menu" v-show="activeDropdown === 'class'">
+            <!-- Добавляем опцию "Все классы" -->
+            <div 
+              class="dropdown-item" 
+              @click="selectClass(null)"
+              :class="{ active: selectedClassId === null }"
+            >
+              Все классы
+            </div>
+            <!-- Затем выводим все доступные классы животных -->
             <div 
               class="dropdown-item" 
               v-for="option in animalTypes" 
@@ -74,6 +83,15 @@
             {{ getHabitatLabel() }} <span class="arrow">▼</span>
           </button>
           <div class="dropdown-menu" v-show="activeDropdown === 'habitat'">
+            <!-- Добавляем опцию "Все ареалы" -->
+            <div 
+              class="dropdown-item" 
+              @click="selectHabitat(null)"
+              :class="{ active: selectedHabitatId === null }"
+            >
+              Все ареалы
+            </div>
+            <!-- Затем выводим все доступные ареалы обитания -->
             <div 
               class="dropdown-item" 
               v-for="option in habitats" 
