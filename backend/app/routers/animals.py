@@ -13,7 +13,8 @@ from ..schemas import (
     AnimalPhotoCreate,
     AnimalPhotoResponse,
     FavoriteAnimalCreate,
-    FavoriteAnimalResponse
+    FavoriteAnimalResponse,
+    AnimalBase
 )
 from ..services.auth_service import get_current_user, get_current_admin_user
 from ..services.minio_service import delete_files_by_ids
@@ -147,36 +148,49 @@ async def get_animal(
 @router.put("/{animal_id}", response_model=AnimalResponse)
 async def update_animal(
     animal_id: int,
-    animal: AnimalCreate,
+    animal_data: AnimalBase,  # Используем базовую схему с необязательными полями
     db: Session = Depends(get_db),
     current_user = Depends(get_current_admin_user)
 ):
     """
     Обновление информации о животном (только для администраторов)
     
+    Поддерживает частичное обновление полей животного (PATCH).
+    Можно обновлять только нужные поля, остальные останутся без изменений.
+    
     Args:
         animal_id: ID животного
-        animal: Новые данные о животном
+        animal_data: Данные для обновления (любые поля модели)
         db: Сессия базы данных
         current_user: Текущий пользователь (должен быть администратором)
         
     Returns:
         AnimalResponse: Обновленное животное
     """
+    # Получаем животное из БД
     db_animal = db.query(Animal).filter(Animal.id == animal_id).first()
     if db_animal is None:
         raise HTTPException(status_code=404, detail="Животное не найдено")
     
-    # Обновляем атрибуты животного
-    for key, value in animal.dict().items():
-        setattr(db_animal, key, value)
+    # Получаем только заполненные поля (не None)
+    update_data = {k: v for k, v in animal_data.dict().items() if v is not None}
+    
+    # Если нет полей для обновления, возвращаем существующее животное
+    if not update_data:
+        return db_animal
     
     try:
+        # Обновляем только указанные поля
+        for key, value in update_data.items():
+            setattr(db_animal, key, value)
+        
         db.commit()
         db.refresh(db_animal)
         return db_animal
     except SQLAlchemyError as e:
         db.rollback()
+        # Логируем подробности ошибки для отладки
+        print(f"ОШИБКА при работе с сессией БД: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка при обновлении животного: {str(e)}")
 
 @router.delete("/{animal_id}")
@@ -186,7 +200,13 @@ async def delete_animal(
     current_user = Depends(get_current_admin_user)
 ):
     """
-    Удаление животного (только для администраторов)
+    Удаление животного (только для администраторов).
+    При удалении животного также удаляется:
+    1. Связанный тест (если есть)
+    2. Все вопросы теста
+    3. Все связи вопросов с вариантами ответов
+    4. Все варианты ответов для вопросов
+    5. Все связанные медиафайлы (изображения, видео)
     
     Args:
         animal_id: ID животного
@@ -196,6 +216,7 @@ async def delete_animal(
     Returns:
         dict: Сообщение об успешном удалении
     """
+    # Находим животное по ID
     db_animal = db.query(Animal).filter(Animal.id == animal_id).first()
     if db_animal is None:
         raise HTTPException(status_code=404, detail="Животное не найдено")
@@ -203,6 +224,66 @@ async def delete_animal(
     try:
         # Собираем все идентификаторы файлов для удаления с вариантами путей в MinIO
         file_patterns_to_delete = []
+        
+        # Проверяем наличие связанного теста и удаляем его со всеми зависимостями
+        if db_animal.test_id:
+            try:
+                # Импортируем необходимые модели здесь, чтобы избежать циклических импортов
+                from ..models import Test, TestQuestion, Question, QuestionAnswer, AnswerOption
+                
+                test_id = db_animal.test_id
+                print(f"Обнаружен связанный тест с ID: {test_id}. Начинаем процесс каскадного удаления.")
+                
+                # Получаем все вопросы теста через связь TestQuestion
+                test_questions = db.query(TestQuestion).filter(TestQuestion.test_id == test_id).all()
+                question_ids = [tq.question_id for tq in test_questions]
+                
+                print(f"Найдено {len(question_ids)} вопросов, связанных с тестом {test_id}: {question_ids}")
+                
+                # Для каждого вопроса удаляем связи с вариантами ответов
+                for question_id in question_ids:
+                    # Получаем все связи вопроса с вариантами ответов
+                    question_answers = db.query(QuestionAnswer).filter(
+                        QuestionAnswer.question_id == question_id
+                    ).all()
+                    
+                    # Собираем ID ответов для последующего удаления
+                    answer_ids = [qa.answer_id for qa in question_answers]
+                    
+                    print(f"Для вопроса {question_id} найдено {len(question_answers)} связей с вариантами ответов")
+                    
+                    # Удаляем связи вопросов с ответами
+                    for qa in question_answers:
+                        db.delete(qa)
+                    
+                    # Удаляем связь вопроса с тестом из таблицы TestQuestion
+                    test_question = db.query(TestQuestion).filter(
+                        TestQuestion.test_id == test_id,
+                        TestQuestion.question_id == question_id
+                    ).first()
+                    if test_question:
+                        db.delete(test_question)
+                    
+                    # Удаляем сам вопрос
+                    question = db.query(Question).filter(Question.id == question_id).first()
+                    if question:
+                        db.delete(question)
+                    
+                    # Удаляем варианты ответов
+                    for answer_id in answer_ids:
+                        answer = db.query(AnswerOption).filter(AnswerOption.id == answer_id).first()
+                        if answer:
+                            db.delete(answer)
+                
+                # Удаляем сам тест
+                test = db.query(Test).filter(Test.id == test_id).first()
+                if test:
+                    db.delete(test)
+                    print(f"Тест с ID {test_id} и все связанные данные успешно удалены")
+                
+            except Exception as e:
+                print(f"Ошибка при каскадном удалении теста: {str(e)}")
+                # Логируем ошибку, но продолжаем процесс удаления животного
         
         # Добавляем все возможные варианты пути для обложки
         if db_animal.preview_id:
@@ -239,7 +320,7 @@ async def delete_animal(
             deletion_result = await delete_files_by_ids(file_patterns_to_delete)
             print(f"Результат удаления файлов из MinIO: {deletion_result}")
         
-        return {"message": "Животное и все связанные с ним файлы успешно удалены"}
+        return {"message": "Животное и все связанные с ним данные успешно удалены"}
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Ошибка при удалении животного: {str(e)}")

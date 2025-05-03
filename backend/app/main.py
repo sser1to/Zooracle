@@ -36,10 +36,10 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,    # Используем конкретные источники
+    allow_origins=["*"],      # Разрешаем запросы с любого источника для разработки
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],      # Разрешаем любые HTTP-методы
+    allow_headers=["*"],      # Разрешаем любые HTTP-заголовки
 )
 
 # Инициализируем структуру базы данных при запуске приложения
@@ -54,7 +54,8 @@ except Exception as e:
     # import sys
     # sys.exit(1)
 
-# Подключаем все API-маршруты
+# Подключаем все API-маршруты через единый роутер
+# Это объединяет все подроутеры из __init__.py
 app.include_router(router, prefix="/api")
 
 @app.get("/")

@@ -266,6 +266,41 @@
         <div v-if="formError" class="error-message">
           <p>{{ formError }}</p>
         </div>
+
+        <!-- Добавляем блок с информацией о тесте и кнопкой создания/редактирования -->
+      <div class="test-management-section">
+        <h3 class="section-title">Управление тестом</h3>
+        
+        <div v-if="animalData.test_id" class="current-test-info">
+          <div class="test-status">
+            <span class="test-icon">✓</span>
+            <span class="test-message">Для данного вида животных создан тест</span>
+          </div>
+          
+          <button 
+            type="button"
+            @click="navigateToEditTest"
+            class="edit-test-button"
+          >
+            Редактировать тест
+          </button>
+        </div>
+        
+        <div v-else class="no-test-info">
+          <div class="test-status">
+            <span class="test-icon test-icon-empty">?</span>
+            <span class="test-message">Тест для данного вида животных отсутствует</span>
+          </div>
+          
+          <button 
+            type="button"
+            @click="navigateToEditTest"
+            class="create-test-button"
+          >
+            Создать тест
+          </button>
+        </div>
+      </div>
         
         <!-- Кнопки управления формой -->
         <div class="form-buttons">
@@ -597,9 +632,13 @@ export default {
     /**
      * Загружает данные редактируемого животного
      * @async
+     * @param {boolean} [forceRefresh=false] - Принудительно перезагрузить данные без учета состояния загрузки
      */
-    const loadAnimalData = async () => {
+    const loadAnimalData = async (forceRefresh = false) => {
       try {
+        // Если данные уже загружаются и не требуется принудительное обновление, выходим из функции
+        if (loading.value && !forceRefresh) return;
+
         // Сначала сбрасываем все предыдущие данные
         resetFormData();
         
@@ -618,6 +657,9 @@ export default {
         animalData.animal_type_id = animal.animal_type_id;
         animalData.habitat_id = animal.habitat_id;
         animalData.video_id = animal.video_id; // Загружаем ID видео
+        animalData.test_id = animal.test_id; // Загружаем ID теста
+        
+        console.log('Данные животного загружены, ID теста:', animal.test_id);
         
         // Сохраняем ID обложки
         currentPreviewId.value = animal.preview_id;
@@ -1045,6 +1087,62 @@ export default {
       try {
         isDeleting.value = true;
         
+        // Проверяем, есть ли связанный тест, который нужно удалить
+        if (animalData.test_id) {
+          const testId = animalData.test_id;
+          console.log(`Обнаружен связанный тест с ID: ${testId}. Начинаем процесс удаления теста.`);
+          
+          try {
+            // Получаем все вопросы теста
+            const testQuestionsResponse = await axios.get(`${apiBase}/tests/${testId}/questions/`);
+            const testQuestions = testQuestionsResponse.data || [];
+            
+            console.log(`Получены вопросы теста (${testQuestions.length}):`, testQuestions);
+            
+            // Для каждого вопроса удаляем связанные варианты ответов
+            for (const testQuestion of testQuestions) {
+              const questionId = testQuestion.question_id;
+              
+              try {
+                // Получаем все варианты ответов для вопроса
+                const answersResponse = await axios.get(`${apiBase}/questions/${questionId}/answers/`);
+                const questionAnswers = answersResponse.data || [];
+                
+                console.log(`Получены варианты ответов для вопроса ${questionId} (${questionAnswers.length}):`, questionAnswers);
+                
+                // Удаляем связь каждого варианта ответа с вопросом
+                for (const qa of questionAnswers) {
+                  try {
+                    await axios.delete(`${apiBase}/questions/${questionId}/answers/${qa.answer_id}`);
+                    console.log(`Удалена связь вопроса ${questionId} с вариантом ответа ${qa.answer_id}`);
+                  } catch (err) {
+                    console.error(`Не удалось удалить связь вопроса ${questionId} с вариантом ответа ${qa.answer_id}:`, err);
+                  }
+                }
+                
+                // Удаляем вопрос из теста
+                await axios.delete(`${apiBase}/tests/${testId}/questions/${questionId}`);
+                console.log(`Удалена связь теста ${testId} с вопросом ${questionId}`);
+                
+                // Удаляем сам вопрос
+                await axios.delete(`${apiBase}/questions/${questionId}`);
+                console.log(`Удален вопрос ${questionId}`);
+                
+              } catch (err) {
+                console.error(`Ошибка при обработке вопроса ${questionId}:`, err);
+              }
+            }
+            
+            // Удаляем сам тест после удаления всех связанных данных
+            await axios.delete(`${apiBase}/tests/${testId}`);
+            console.log(`Тест с ID ${testId} успешно удален`);
+            
+          } catch (err) {
+            console.error(`Ошибка при удалении связанного теста с ID ${animalData.test_id}:`, err);
+            // Продолжаем удаление животного даже при ошибке удаления теста
+          }
+        }
+        
         // Отправляем запрос на удаление животного
         await axios.delete(`${apiBase}/animals/${animalId.value}`);
         
@@ -1076,6 +1174,13 @@ export default {
       }
     };
 
+    /**
+     * Переход к редактированию теста
+     */
+    const navigateToEditTest = () => {
+      router.push({ path: `/edit-test/${animalId.value}` });
+    };
+
     // Загружаем данные при монтировании компонента
     onMounted(() => {
       // Настраиваем axios для работы с токенами
@@ -1087,8 +1192,24 @@ export default {
         return config;
       });
       
-      // Загружаем справочные данные и данные животного
-      Promise.all([loadReferenceData(), loadAnimalData()]);
+      // Проверяем наличие параметра refreshTest в URL для обновления данных о тесте
+      const urlParams = new URLSearchParams(window.location.search);
+      const refreshTest = urlParams.get('refreshTest');
+      
+      if (refreshTest === 'true') {
+        // Принудительно перезагружаем данные животного для обновления информации о тесте
+        console.log('Обнаружен параметр refreshTest=true, перезагружаем данные животного');
+        loadAnimalData(true);
+        
+        // Очищаем URL от параметра, чтобы при последующих обновлениях страницы данные не перезагружались
+        if (window.history && window.history.replaceState) {
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      } else {
+        // Загружаем справочные данные и данные животного
+        Promise.all([loadReferenceData(), loadAnimalData()]);
+      }
     });
     
     // Сбрасываем все данные формы при размонтировании компонента
@@ -1165,7 +1286,8 @@ export default {
       checkNameUnique,
       totalImagesCount,
       MAX_IMAGES,
-      handleImageError
+      handleImageError,
+      navigateToEditTest
     };
   }
 };
@@ -1895,6 +2017,64 @@ export default {
   margin-top: 8px;
   text-align: center;
   margin-bottom: 12px;
+}
+
+/* Стили для управления тестом */
+.test-management-section {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.current-test-info,
+.no-test-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.test-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.test-icon {
+  font-size: 20px;
+  color: #4CAF50;
+}
+
+.test-icon-empty {
+  font-size: 20px;
+  color: #ff5252;
+}
+
+.test-message {
+  font-size: 14px;
+  color: #333;
+}
+
+.edit-test-button,
+.create-test-button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.edit-test-button:hover,
+.create-test-button:hover {
+  background-color: #45a049;
 }
 </style>
 

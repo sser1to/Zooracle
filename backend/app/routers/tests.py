@@ -1,350 +1,473 @@
-from fastapi import APIRouter, Depends, HTTPException # type: ignore
-from sqlalchemy.orm import Session # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from typing import List
-from sqlalchemy.exc import SQLAlchemyError # type: ignore
-from datetime import datetime
 
-from ..database import get_db
-from ..models import Test, TestQuestion, Question, TestScore
-from ..schemas import (
-    TestCreate, 
-    TestResponse, 
-    TestQuestionCreate, 
-    TestQuestionResponse,
-    TestScoreCreate,
-    TestScoreResponse
+from .. import models, schemas, database
+from ..routers.auth import get_current_user, get_current_admin
+
+# Убираем prefix, т.к. он уже задается в __init__.py
+router = APIRouter(
+    tags=["tests"]
 )
-from ..services.auth_service import get_current_user, get_current_admin_user
 
-router = APIRouter()
 
-@router.post("/", response_model=TestResponse)
+def get_db():
+    """
+    Получение соединения с базой данных
+    
+    Yields:
+        Session: Сессия базы данных для выполнения запросов
+    """
+    db = database.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@router.post("/", response_model=schemas.Test)
 async def create_test(
-    test: TestCreate, 
+    test: schemas.TestCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    current_user: schemas.UserResponse = Depends(get_current_admin)  # Используем get_current_admin
 ):
     """
-    Создание нового теста (только для администраторов)
+    Создание нового теста
     
     Args:
-        test: Данные о тесте
-        db: Сессия базы данных
-        current_user: Текущий пользователь (должен быть администратором)
+        test (schemas.TestCreate): Данные для создания теста
+        db (Session): Сессия БД
+        current_user (schemas.UserResponse): Текущий пользователь (администратор)
         
     Returns:
-        TestResponse: Созданный тест
+        models.Test: Созданный тест
     """
-    try:
-        new_test = Test(**test.dict())
-        db.add(new_test)
-        db.commit()
-        db.refresh(new_test)
-        return new_test
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при создании теста: {str(e)}")
+    # Создаем новый тест
+    db_test = models.Test(name=test.name)
+    db.add(db_test)
+    db.commit()
+    db.refresh(db_test)
+    
+    # Если указан animal_id, обновляем ссылку на тест у животного
+    if test.animal_id:
+        db_animal = db.query(models.Animal).filter(models.Animal.id == test.animal_id).first()
+        if db_animal:
+            db_animal.test_id = db_test.id
+            db.commit()
+            db.refresh(db_animal)
+    
+    return db_test
 
-@router.get("/", response_model=List[TestResponse])
-async def get_tests(
-    skip: int = 0, 
+
+@router.get("/", response_model=List[schemas.Test])
+def get_tests(
+    skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
     """
-    Получение списка тестов
+    Получение списка всех тестов
     
     Args:
-        skip: Сколько записей пропустить
-        limit: Максимальное количество записей
-        db: Сессия базы данных
+        skip (int, optional): Сколько записей пропустить. По умолчанию 0.
+        limit (int, optional): Максимальное количество записей. По умолчанию 100.
+        db (Session): Сессия БД
         
     Returns:
-        List[TestResponse]: Список тестов
+        List[models.Test]: Список тестов
     """
-    tests = db.query(Test).offset(skip).limit(limit).all()
-    return tests
+    return db.query(models.Test).offset(skip).limit(limit).all()
 
-@router.get("/{test_id}", response_model=TestResponse)
-async def get_test(
+
+@router.get("/{test_id}", response_model=schemas.Test)
+def get_test(
     test_id: int,
     db: Session = Depends(get_db)
 ):
     """
-    Получение информации о конкретном тесте
+    Получение теста по ID
     
     Args:
-        test_id: ID теста
-        db: Сессия базы данных
+        test_id (int): ID теста
+        db (Session): Сессия БД
         
     Returns:
-        TestResponse: Данные о тесте
+        models.Test: Найденный тест
+        
+    Raises:
+        HTTPException: Если тест не найден
     """
-    test = db.query(Test).filter(Test.id == test_id).first()
-    if test is None:
-        raise HTTPException(status_code=404, detail="Тест не найден")
-    return test
+    db_test = db.query(models.Test).filter(models.Test.id == test_id).first()
+    if db_test is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Тест не найден"
+        )
+    return db_test
 
-@router.put("/{test_id}", response_model=TestResponse)
+
+@router.put("/{test_id}", response_model=schemas.Test)
 async def update_test(
     test_id: int,
-    test: TestCreate,
+    test: schemas.TestUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    current_user: schemas.UserResponse = Depends(get_current_admin)  # Используем get_current_admin
 ):
     """
-    Обновление информации о тесте (только для администраторов)
+    Обновление теста по ID
     
     Args:
-        test_id: ID теста
-        test: Новые данные о тесте
-        db: Сессия базы данных
-        current_user: Текущий пользователь (должен быть администратором)
+        test_id (int): ID теста для обновления
+        test (schemas.TestUpdate): Данные для обновления
+        db (Session): Сессия БД
+        current_user (schemas.UserResponse): Текущий пользователь (администратор)
         
     Returns:
-        TestResponse: Обновленный тест
+        models.Test: Обновленный тест
+        
+    Raises:
+        HTTPException: Если тест не найден
     """
-    db_test = db.query(Test).filter(Test.id == test_id).first()
+    db_test = db.query(models.Test).filter(models.Test.id == test_id).first()
     if db_test is None:
-        raise HTTPException(status_code=404, detail="Тест не найден")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Тест не найден"
+        )
     
-    # Обновляем атрибуты теста
-    for key, value in test.dict().items():
+    update_data = test.dict(exclude_unset=True)
+    for key, value in update_data.items():
         setattr(db_test, key, value)
     
-    try:
-        db.commit()
-        db.refresh(db_test)
-        return db_test
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при обновлении теста: {str(e)}")
+    db.commit()
+    db.refresh(db_test)
+    return db_test
 
-@router.delete("/{test_id}")
+
+@router.delete("/{test_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_test(
     test_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    current_user: schemas.UserResponse = Depends(get_current_admin)  # Используем get_current_admin
 ):
     """
-    Удаление теста (только для администраторов)
+    Удаление теста по ID
     
     Args:
-        test_id: ID теста
-        db: Сессия базы данных
-        current_user: Текущий пользователь (должен быть администратором)
+        test_id (int): ID теста для удаления
+        db (Session): Сессия БД
+        current_user (schemas.UserResponse): Текущий пользователь (администратор)
         
-    Returns:
-        dict: Сообщение об успешном удалении
+    Raises:
+        HTTPException: Если тест не найден
     """
-    db_test = db.query(Test).filter(Test.id == test_id).first()
+    db_test = db.query(models.Test).filter(models.Test.id == test_id).first()
     if db_test is None:
-        raise HTTPException(status_code=404, detail="Тест не найден")
-    
-    try:
-        db.delete(db_test)
-        db.commit()
-        return {"message": "Тест успешно удален"}
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при удалении теста: {str(e)}")
-
-# Маршруты для связи тестов и вопросов
-@router.post("/{test_id}/questions/", response_model=TestQuestionResponse)
-async def add_question_to_test(
-    test_id: int,
-    test_question: TestQuestionCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
-):
-    """
-    Добавление вопроса к тесту (только для администраторов)
-    
-    Args:
-        test_id: ID теста
-        test_question: Данные о связи теста с вопросом
-        db: Сессия базы данных
-        current_user: Текущий пользователь (должен быть администратором)
-        
-    Returns:
-        TestQuestionResponse: Созданная связь теста с вопросом
-    """
-    # Проверяем существование теста
-    test = db.query(Test).filter(Test.id == test_id).first()
-    if test is None:
-        raise HTTPException(status_code=404, detail="Тест не найден")
-    
-    # Проверяем существование вопроса
-    question = db.query(Question).filter(Question.id == test_question.question_id).first()
-    if question is None:
-        raise HTTPException(status_code=404, detail="Вопрос не найден")
-    
-    # Проверяем, не добавлен ли уже этот вопрос к тесту
-    existing = db.query(TestQuestion).filter(
-        TestQuestion.test_id == test_id,
-        TestQuestion.question_id == test_question.question_id
-    ).first()
-    
-    if existing:
         raise HTTPException(
-            status_code=400, 
-            detail="Этот вопрос уже добавлен к тесту"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Тест не найден"
         )
     
-    # Создаем новую связь теста с вопросом
-    new_test_question = TestQuestion(
-        test_id=test_id,
-        question_id=test_question.question_id
-    )
+    # Обновляем ссылки на тест в животных перед удалением
+    db_animals = db.query(models.Animal).filter(models.Animal.test_id == test_id).all()
+    for animal in db_animals:
+        animal.test_id = None
     
-    try:
-        db.add(new_test_question)
-        db.commit()
-        db.refresh(new_test_question)
-        return new_test_question
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при добавлении вопроса к тесту: {str(e)}")
+    # Удаляем связи с вопросами
+    db.query(models.TestQuestion).filter(models.TestQuestion.test_id == test_id).delete()
+    
+    # Удаляем тест
+    db.delete(db_test)
+    db.commit()
+    
+    return None
 
-@router.get("/{test_id}/questions/", response_model=List[TestQuestionResponse])
-async def get_test_questions(
+
+@router.get("/{test_id}/questions", response_model=List[schemas.Question])
+def get_test_questions(
     test_id: int,
     db: Session = Depends(get_db)
 ):
     """
-    Получение всех вопросов теста
+    Получение всех вопросов теста по ID теста
     
     Args:
-        test_id: ID теста
-        db: Сессия базы данных
+        test_id (int): ID теста
+        db (Session): Сессия БД
         
     Returns:
-        List[TestQuestionResponse]: Список связей теста с вопросами
+        List[schemas.Question]: Список вопросов с вариантами ответов
+        
+    Raises:
+        HTTPException: Если тест не найден
     """
-    # Проверяем существование теста
-    test = db.query(Test).filter(Test.id == test_id).first()
+    # Проверяем, существует ли тест
+    test = db.query(models.Test).filter(models.Test.id == test_id).first()
     if test is None:
-        raise HTTPException(status_code=404, detail="Тест не найден")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Тест не найден"
+        )
     
-    test_questions = db.query(TestQuestion).filter(TestQuestion.test_id == test_id).all()
-    return test_questions
+    # Получаем все ID вопросов, связанные с данным тестом
+    test_question_relations = db.query(models.TestQuestion).filter(
+        models.TestQuestion.test_id == test_id
+    ).all()
+    
+    question_ids = [tq.question_id for tq in test_question_relations]
+    
+    # Если вопросов нет, возвращаем пустой список
+    if not question_ids:
+        return []
+    
+    # Получаем все вопросы по найденным ID
+    questions = db.query(models.Question).filter(
+        models.Question.id.in_(question_ids)
+    ).all()
+    
+    # Для каждого вопроса получаем варианты ответов
+    result = []
+    for question in questions:
+        # Получаем связи вопрос-ответ
+        question_answer_relations = db.query(models.QuestionAnswer).filter(
+            models.QuestionAnswer.question_id == question.id
+        ).all()
+        
+        answer_ids = [qa.answer_id for qa in question_answer_relations]
+        
+        # Получаем варианты ответов
+        answers = []
+        if answer_ids:
+            answers = db.query(models.AnswerOption).filter(
+                models.AnswerOption.id.in_(answer_ids)
+            ).all()
+        
+        # Создаем объект вопроса с вариантами ответов
+        question_dict = {
+            "id": question.id,
+            "name": question.name,
+            "question_type_id": question.question_type_id,
+            "answers": answers
+        }
+        result.append(question_dict)
+    
+    return result
 
-@router.delete("/{test_id}/questions/{question_id}")
-async def remove_question_from_test(
+
+@router.post("/{test_id}/questions", response_model=List[schemas.Question])
+async def create_or_update_test_questions(
     test_id: int,
-    question_id: int,
+    questions_data: schemas.TestQuestionsUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
+    current_user: schemas.UserResponse = Depends(get_current_admin)  # Используем get_current_admin
 ):
     """
-    Удаление вопроса из теста (только для администраторов)
+    Создание или обновление вопросов теста
     
     Args:
-        test_id: ID теста
-        question_id: ID вопроса
-        db: Сессия базы данных
-        current_user: Текущий пользователь (должен быть администратором)
+        test_id (int): ID теста
+        questions_data (schemas.TestQuestionsUpdate): Данные вопросов для создания/обновления
+        db (Session): Сессия БД
+        current_user (schemas.UserResponse): Текущий пользователь (администратор)
         
     Returns:
-        dict: Сообщение об успешном удалении
+        List[schemas.Question]: Список созданных/обновленных вопросов
+        
+    Raises:
+        HTTPException: Если тест не найден
     """
-    test_question = db.query(TestQuestion).filter(
-        TestQuestion.test_id == test_id,
-        TestQuestion.question_id == question_id
-    ).first()
+    # Проверяем, существует ли тест
+    test = db.query(models.Test).filter(models.Test.id == test_id).first()
+    if test is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Тест не найден"
+        )
     
-    if test_question is None:
-        raise HTTPException(status_code=404, detail="Вопрос не найден в тесте")
+    # Получаем все существующие связи вопросов с этим тестом
+    existing_test_questions = db.query(models.TestQuestion).filter(
+        models.TestQuestion.test_id == test_id
+    ).all()
     
-    try:
-        db.delete(test_question)
+    # Получаем ID существующих вопросов
+    existing_question_ids = [tq.question_id for tq in existing_test_questions]
+    
+    # Сохраняем новые вопросы и ответы
+    result_questions = []
+    
+    # Добавляем новые вопросы и обновляем существующие
+    for question_data in questions_data.questions:
+        question_id = question_data.id
+        
+        if question_id:
+            # Обновляем существующий вопрос
+            question = db.query(models.Question).filter(models.Question.id == question_id).first()
+            if question:
+                question.name = question_data.name
+                question.question_type_id = question_data.question_type_id
+                db.commit()
+                db.refresh(question)
+            else:
+                # Если ID указан, но вопрос не найден, создаем новый
+                question = models.Question(
+                    name=question_data.name,
+                    question_type_id=question_data.question_type_id
+                )
+                db.add(question)
+                db.commit()
+                db.refresh(question)
+                
+                # Создаем связь вопроса с тестом
+                test_question = models.TestQuestion(
+                    test_id=test_id,
+                    question_id=question.id
+                )
+                db.add(test_question)
+                db.commit()
+        else:
+            # Создаем новый вопрос
+            question = models.Question(
+                name=question_data.name,
+                question_type_id=question_data.question_type_id
+            )
+            db.add(question)
+            db.commit()
+            db.refresh(question)
+            
+            # Создаем связь вопроса с тестом
+            test_question = models.TestQuestion(
+                test_id=test_id,
+                question_id=question.id
+            )
+            db.add(test_question)
+            db.commit()
+        
+        # Обрабатываем варианты ответов для вопроса
+        # Сначала получаем существующие связи вопрос-ответ
+        existing_question_answers = db.query(models.QuestionAnswer).filter(
+            models.QuestionAnswer.question_id == question.id
+        ).all()
+        
+        # Получаем ID существующих ответов
+        existing_answer_ids = []
+        for qa in existing_question_answers:
+            answer = db.query(models.AnswerOption).filter(models.AnswerOption.id == qa.answer_id).first()
+            if answer:
+                existing_answer_ids.append(answer.id)
+        
+        # Добавляем или обновляем варианты ответов
+        new_answer_ids = []
+        for answer_data in question_data.answers:
+            if answer_data.id:
+                # Обновляем существующий вариант ответа
+                answer = db.query(models.AnswerOption).filter(models.AnswerOption.id == answer_data.id).first()
+                if answer:
+                    answer.name = answer_data.name
+                    answer.is_correct = answer_data.is_correct
+                    db.commit()
+                    db.refresh(answer)
+                    new_answer_ids.append(answer.id)
+                else:
+                    # Если ID указан, но вариант ответа не найден, создаем новый
+                    answer = models.AnswerOption(
+                        name=answer_data.name,
+                        is_correct=answer_data.is_correct
+                    )
+                    db.add(answer)
+                    db.commit()
+                    db.refresh(answer)
+                    new_answer_ids.append(answer.id)
+                    
+                    # Создаем связь вопрос-ответ
+                    question_answer = models.QuestionAnswer(
+                        question_id=question.id,
+                        answer_id=answer.id
+                    )
+                    db.add(question_answer)
+                    db.commit()
+            else:
+                # Создаем новый вариант ответа
+                answer = models.AnswerOption(
+                    name=answer_data.name,
+                    is_correct=answer_data.is_correct
+                )
+                db.add(answer)
+                db.commit()
+                db.refresh(answer)
+                new_answer_ids.append(answer.id)
+                
+                # Создаем связь вопрос-ответ
+                question_answer = models.QuestionAnswer(
+                    question_id=question.id,
+                    answer_id=answer.id
+                )
+                db.add(question_answer)
+                db.commit()
+        
+        # Удаляем варианты ответов, которых нет в новом списке
+        for answer_id in existing_answer_ids:
+            if answer_id not in new_answer_ids:
+                # Удаляем связь вопрос-ответ
+                db.query(models.QuestionAnswer).filter(
+                    and_(
+                        models.QuestionAnswer.question_id == question.id,
+                        models.QuestionAnswer.answer_id == answer_id
+                    )
+                ).delete()
+                
+                # Удаляем вариант ответа
+                db.query(models.AnswerOption).filter(models.AnswerOption.id == answer_id).delete()
+                
         db.commit()
-        return {"message": "Вопрос успешно удален из теста"}
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при удалении вопроса из теста: {str(e)}")
-
-# Маршруты для результатов тестов
-@router.post("/{test_id}/scores/", response_model=TestScoreResponse)
-async def submit_test_score(
-    test_id: int,
-    score: TestScoreCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """
-    Отправка результата теста
-    
-    Args:
-        test_id: ID теста
-        score: Данные о результате теста
-        db: Сессия базы данных
-        current_user: Текущий пользователь
         
-    Returns:
-        TestScoreResponse: Сохраненный результат теста
-    """
-    # Проверяем существование теста
-    test = db.query(Test).filter(Test.id == test_id).first()
-    if test is None:
-        raise HTTPException(status_code=404, detail="Тест не найден")
+        # Добавляем обработанный вопрос в результат
+        result_questions.append(question)
     
-    # Создаем новый результат теста
-    new_score = TestScore(
-        user_id=current_user.id,
-        test_id=test_id,
-        score=score.score,
-        date=datetime.utcnow()
-    )
+    # Получаем список ID вопросов после обработки
+    processed_question_ids = [q.id for q in result_questions]
     
-    try:
-        db.add(new_score)
-        db.commit()
-        db.refresh(new_score)
-        return new_score
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при сохранении результата теста: {str(e)}")
-
-@router.get("/{test_id}/scores/", response_model=List[TestScoreResponse])
-async def get_test_scores(
-    test_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_admin_user)
-):
-    """
-    Получение всех результатов теста (только для администраторов)
+    # Удаляем вопросы, которых больше нет в тесте
+    for question_id in existing_question_ids:
+        if question_id not in processed_question_ids:
+            # Удаляем связь тест-вопрос
+            db.query(models.TestQuestion).filter(
+                and_(
+                    models.TestQuestion.test_id == test_id,
+                    models.TestQuestion.question_id == question_id
+                )
+            ).delete()
+            
+            # Проверяем, используется ли вопрос в других тестах
+            other_test_questions = db.query(models.TestQuestion).filter(
+                models.TestQuestion.question_id == question_id
+            ).all()
+            
+            # Если вопрос не используется в других тестах, удаляем его
+            if not other_test_questions:
+                # Получаем все связи вопрос-ответ
+                question_answers = db.query(models.QuestionAnswer).filter(
+                    models.QuestionAnswer.question_id == question_id
+                ).all()
+                
+                # Удаляем все связи вопрос-ответ и ответы
+                for qa in question_answers:
+                    answer_id = qa.answer_id
+                    
+                    # Удаляем связь вопрос-ответ
+                    db.query(models.QuestionAnswer).filter(
+                        models.QuestionAnswer.id == qa.id
+                    ).delete()
+                    
+                    # Удаляем вариант ответа
+                    db.query(models.AnswerOption).filter(
+                        models.AnswerOption.id == answer_id
+                    ).delete()
+                
+                # Удаляем вопрос
+                db.query(models.Question).filter(models.Question.id == question_id).delete()
+            
+            db.commit()
     
-    Args:
-        test_id: ID теста
-        db: Сессия базы данных
-        current_user: Текущий пользователь (должен быть администратором)
-        
-    Returns:
-        List[TestScoreResponse]: Список результатов теста
-    """
-    # Проверяем существование теста
-    test = db.query(Test).filter(Test.id == test_id).first()
-    if test is None:
-        raise HTTPException(status_code=404, detail="Тест не найден")
-    
-    scores = db.query(TestScore).filter(TestScore.test_id == test_id).all()
-    return scores
-
-@router.get("/user/scores/", response_model=List[TestScoreResponse])
-async def get_user_scores(
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """
-    Получение всех результатов тестов текущего пользователя
-    
-    Args:
-        db: Сессия базы данных
-        current_user: Текущий пользователь
-        
-    Returns:
-        List[TestScoreResponse]: Список результатов тестов пользователя
-    """
-    scores = db.query(TestScore).filter(TestScore.user_id == current_user.id).all()
-    return scores
+    # Получаем обновленный список вопросов с вариантами ответов
+    return get_test_questions(test_id=test_id, db=db)

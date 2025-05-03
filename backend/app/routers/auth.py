@@ -1,8 +1,9 @@
 from datetime import timedelta, datetime
 import logging
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Security
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -15,13 +16,16 @@ from ..schemas import (
     PasswordResetRequest, 
     PasswordReset, 
     EmailVerificationRequest,
-    EmailVerificationCode
+    EmailVerificationCode,
+    TokenData
 )
 from ..services.auth_service import (
     authenticate_user, 
     create_access_token, 
     get_password_hash, 
-    ACCESS_TOKEN_EXPIRE_MINUTES
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    SECRET_KEY,
+    ALGORITHM
 )
 from ..services.email_verification_service import (
     create_verification_code,
@@ -36,6 +40,11 @@ from ..services.smtp_service import send_email_verification_code, send_password_
 
 # Настройка логирования
 logger = logging.getLogger("auth_router")
+
+# Создаем экземпляр OAuth2PasswordBearer для получения токена из запроса
+# Обратите внимание на исправленный URL для tokenUrl, он должен соответствовать
+# фактическому пути к эндпоинту login
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 router = APIRouter()
 
@@ -419,6 +428,7 @@ def confirm_password_reset(reset_data: PasswordReset, db: Session = Depends(get_
             detail="Произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже."
         )
 
+
 @router.get("/reset-password/validate-token/{token}", status_code=status.HTTP_200_OK)
 def validate_reset_token(token: str, db: Session = Depends(get_db)):
     """
@@ -491,3 +501,70 @@ def validate_reset_token(token: str, db: Session = Depends(get_db)):
             "valid": False,
             "reason": "token_invalid"
         }
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> UserResponse:
+    """
+    Получает текущего пользователя на основе JWT токена
+    
+    Args:
+        token (str): JWT токен авторизации
+        db (Session): Сессия базы данных
+        
+    Returns:
+        UserResponse: Данные авторизованного пользователя
+        
+    Raises:
+        HTTPException: Если токен недействителен или пользователь не найден
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Не удалось проверить учетные данные",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        # Декодируем JWT токен
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except JWTError:
+        raise credentials_exception
+    
+    # Получаем пользователя из базы данных по логину
+    user = db.query(User).filter(User.login == token_data.username).first()
+    if user is None:
+        raise credentials_exception
+    
+    # Возвращаем данные пользователя
+    return UserResponse(
+        id=user.id,
+        login=user.login,
+        email=user.email,
+        is_admin=user.is_admin
+    )
+
+
+# Добавляем функцию для получения текущего администратора
+# Это обертка над get_current_user, которая проверяет права администратора
+async def get_current_admin(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
+    """
+    Проверяет, что текущий пользователь имеет права администратора
+    
+    Args:
+        current_user (UserResponse): Текущий пользователь
+        
+    Returns:
+        UserResponse: Данные администратора
+        
+    Raises:
+        HTTPException: Если пользователь не является администратором
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Требуются права администратора"
+        )
+    return current_user

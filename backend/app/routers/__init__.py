@@ -12,9 +12,10 @@ from .animals import router as animals_router
 from .animal_types import router as animal_types_router
 from .habitats import router as habitats_router
 from .tests import router as tests_router
-from .questions import router as questions_router
+from .question import router as questions_router
 from .media import router as media_router
 
+# Создаем основной роутер API
 router = APIRouter()
 
 # Подключаем маршруты аутентификации

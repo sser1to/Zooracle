@@ -8,6 +8,7 @@ import AnimalCatalog from './components/AnimalCatalog.vue';
 import AddAnimal from './components/AddAnimal.vue';
 import EditAnimal from './components/EditAnimal.vue'; // Импортируем компонент редактирования
 import AnimalDetail from './components/AnimalDetail.vue'; // Импорт нового компонента
+import EditTest from './components/EditTest.vue'; // Импортируем компонент редактирования теста
 import authService from './services/auth';
 
 /**
@@ -139,6 +140,19 @@ const routes = [
     component: AnimalDetail,
     props: true,
     meta: { requiresAuth: true, title: 'Детальная информация - Zooracle' }
+  },
+  
+  // Маршрут для создания/редактирования теста (только для администраторов)
+  {
+    path: '/edit-test/:animalId/:testId?',
+    name: 'edit-test',
+    component: EditTest,
+    props: true,
+    meta: { 
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Редактирование теста - Zooracle' 
+    }
   },
   
   // Маршрут для обработки несуществующих маршрутов (перенаправление на логин)
