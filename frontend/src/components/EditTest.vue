@@ -127,6 +127,7 @@
             
             <!-- Кнопка для добавления нового варианта ответа -->
             <button 
+              v-if="question.answerOptions.length < MAX_OPTIONS"
               type="button" 
               class="add-option-button" 
               @click="addOption(questionIndex)"
@@ -134,6 +135,11 @@
               <span class="add-icon">+</span>
               <span>Добавить вариант ответа</span>
             </button>
+            
+            <!-- Сообщение о достижении максимального количества вариантов ответа -->
+            <div v-else class="max-options-message">
+              Достигнуто максимальное количество вариантов ответа ({{ MAX_OPTIONS }})
+            </div>
           </div>
           
           <!-- Поле ввода правильного ответа (для типа 1 - ввод ответа) -->
@@ -151,6 +157,7 @@
         
         <!-- Кнопка для добавления нового вопроса -->
         <button 
+          v-if="!isMaxQuestionsReached"
           type="button" 
           class="add-question-button" 
           @click="addQuestion"
@@ -158,6 +165,11 @@
           <span class="add-icon">+</span>
           <span>Добавить вопрос</span>
         </button>
+
+        <!-- Сообщение о достижении максимального количества вопросов -->
+        <div v-else class="max-questions-message">
+          Достигнуто максимальное количество вопросов ({{ MAX_QUESTIONS }})
+        </div>
       </div>
       
       <!-- Сообщения об ошибках при отправке формы -->
@@ -189,7 +201,7 @@
 </template>
 
 <script>
-import { ref, onMounted, reactive, onBeforeUnmount, watch } from 'vue';
+import { ref, onMounted, reactive, onBeforeUnmount, watch, computed } from 'vue';
 import axios from 'axios';
 import { useRouter, useRoute } from 'vue-router';
 
@@ -201,6 +213,11 @@ import { useRouter, useRoute } from 'vue-router';
 export default {
   name: 'EditTest',
   setup() {
+    // Константы для ограничений количества вопросов и вариантов ответов
+    const MAX_QUESTIONS = 10; // Максимальное количество вопросов в тесте
+    // eslint-disable-next-line
+    const MAX_OPTIONS = 6; // Максимальное количество вариантов ответа в вопросе
+    
     // Базовый URL для API
     const apiBaseUrl = 'http://localhost:8000/api';
     
@@ -229,6 +246,12 @@ export default {
     // Список вопросов
     const questions = ref([]);
     
+    // Вычисляемое свойство для проверки достижения максимального количества вопросов
+    // eslint-disable-next-line
+    const isMaxQuestionsReached = computed(() => {
+      return questions.value.length >= MAX_QUESTIONS;
+    });
+
     /**
      * Сбрасывает все данные формы для начала работы с чистого листа
      * @description Очищает все загруженные данные и сбрасывает состояния
@@ -446,10 +469,8 @@ export default {
      * @param {number} index - Индекс удаляемого вопроса
      */
     const removeQuestion = (index) => {
-      if (confirm('Вы уверены, что хотите удалить этот вопрос?')) {
-        questions.value.splice(index, 1);
-        unsavedChanges.value = true;
-      }
+      questions.value.splice(index, 1);
+      unsavedChanges.value = true;
     };
     
     /**
@@ -747,7 +768,10 @@ export default {
       setCorrectOption,
       loadTestData,
       saveTest,
-      resetAllData
+      resetAllData,
+      MAX_OPTIONS,
+      MAX_QUESTIONS,
+      isMaxQuestionsReached
     };
   }
 };
@@ -1015,6 +1039,14 @@ export default {
 .add-option-button {
   margin-left: 35px;
   margin-top: 5px;
+}
+
+/* Стили для сообщения о достижении максимального количества вариантов ответа */
+.max-options-message {
+  margin-left: 35px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: #d32f2f;
 }
 
 /* Стили полей ввода и селекторов */
