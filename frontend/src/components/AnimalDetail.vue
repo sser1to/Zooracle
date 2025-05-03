@@ -170,7 +170,15 @@ export default {
     
     const route = useRoute();
     const router = useRouter();
-    const apiBase = 'http://localhost:8000/api';
+    
+    // Константы и настройки
+    const BACKEND_PORT = process.env.BACKEND_PORT;
+    const SITE_IP = process.env.SITE_IP;
+    
+    // Определяем базовый URL API в зависимости от окружения
+    const apiBase = process.env.NODE_ENV === 'production' 
+      ? '/api'
+      : `${SITE_IP}:${BACKEND_PORT}/api`;
     
     /**
      * Проверяет, находится ли текущее животное в избранном

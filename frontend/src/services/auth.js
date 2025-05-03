@@ -5,9 +5,12 @@ import axios from 'axios';
  * В Docker-окружении используем относительные пути через Nginx
  * В режиме разработки обращаемся напрямую к бэкенду
  */
+const BACKEND_PORT = process.env.FRONTEND_PORT;
+const SITE_IP = process.env.SITE_IP;
+
 const API_URL = process.env.NODE_ENV === 'production' 
   ? '/api' // Относительный путь в продакшне (обрабатывается Nginx)
-  : 'http://localhost:8000/api'; // Для локальной разработки
+  : `${SITE_IP}:${BACKEND_PORT}/api`; // Для локальной разработки
 
 /**
  * Перехватчик для подробного логирования ошибок

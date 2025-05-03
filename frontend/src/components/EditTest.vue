@@ -218,8 +218,14 @@ export default {
     // eslint-disable-next-line
     const MAX_OPTIONS = 6; // Максимальное количество вариантов ответа в вопросе
     
-    // Базовый URL для API
-    const apiBaseUrl = 'http://localhost:8000/api';
+    // Константы и настройки
+    const BACKEND_PORT = process.env.BACKEND_PORT;
+    const SITE_IP = process.env.SITE_IP;
+    
+    // Определяем базовый URL API в зависимости от окружения
+    const apiBaseUrl = process.env.NODE_ENV === 'production' 
+      ? '/api'
+      : `${SITE_IP}:${BACKEND_PORT}/api`;
     
     // Получение параметров из URL
     const router = useRouter();

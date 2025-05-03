@@ -2,7 +2,45 @@ const { app, BrowserWindow, ipcMain, globalShortcut, Menu } = require('electron'
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const fs = require('fs');
 const isDev = process.env.NODE_ENV !== 'production';
+
+// Загружаем переменные окружения из файла .env
+function loadEnvFile() {
+  try {
+    // Путь к файлу .env (на уровень выше)
+    const envPath = path.join(__dirname, '..', '.env');
+    
+    // Проверяем, существует ли файл
+    if (fs.existsSync(envPath)) {
+      // Читаем файл и парсим переменные окружения
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      const envLines = envContent.split('\n');
+      
+      envLines.forEach(line => {
+        // Игнорируем комментарии и пустые строки
+        if (line.trim() && !line.startsWith('#')) {
+          const match = line.match(/^\s*([^=]+?)\s*=\s*(?:"([^"]*)"|(.*))$/);
+          if (match) {
+            const key = match[1];
+            // Используем значение в кавычках, если оно есть, иначе без кавычек
+            const value = match[2] !== undefined ? match[2] : match[3];
+            process.env[key] = value;
+          }
+        }
+      });
+      
+      console.log('Переменные окружения успешно загружены из .env');
+    } else {
+      console.warn('Файл .env не найден, используются значения по умолчанию');
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке файла .env:', error);
+  }
+}
+
+// Загружаем переменные окружения перед их использованием
+loadEnvFile();
 
 // Сохраняем глобальную ссылку на окно, иначе окно будет закрыто 
 // автоматически, когда JavaScript объект будет собран сборщиком мусора
@@ -10,8 +48,18 @@ let win;
 let frontendProcess = null;
 
 // URL для фронтенда и API
-const frontendUrl = 'http://localhost:8080';
-const apiUrl = 'http://localhost:8000/api'; // Изменяем порт с 8080 на 8000 для API в докере
+// Используем переменные окружения из .env файла, с запасными значениями
+const frontendPort = process.env.FRONTEND_PORT;
+const backendPort = process.env.BACKEND_PORT;
+const siteIp = process.env.SITE_IP;
+
+const frontendUrl = process.env.FRONTEND_URL || `${siteIp}:${frontendPort}`;
+const apiUrl = `${siteIp}:${backendPort}/api`;
+
+// Выводим в консоль для отладки
+console.log('Используемые URL:');
+console.log(`Frontend URL: ${frontendUrl}`);
+console.log(`API URL: ${apiUrl}`);
 
 // Функция для проверки доступности фронтенд-сервера
 function checkFrontendAvailability(url, callback) {

@@ -218,7 +218,14 @@ export default {
   
   setup() {
     // Константы и настройки
-    const apiBase = 'http://localhost:8000/api';
+    const BACKEND_PORT = process.env.BACKEND_PORT;
+    const SITE_IP = process.env.SITE_IP;
+    
+    // Определяем базовый URL API в зависимости от окружения
+    const apiBase = process.env.NODE_ENV === 'production' 
+      ? '/api'
+      : `${SITE_IP}:${BACKEND_PORT}/api`;
+    
     const router = useRouter();
     
     // Константа для максимального количества дополнительных изображений

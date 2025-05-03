@@ -7,8 +7,8 @@ from minio import Minio
 from minio.error import S3Error
 
 # Получаем данные подключения к MinIO из переменных окружения
-MINIO_HOST = os.getenv("MINIO_HOST", "minio")  # Оставляем хост и порт, так как они фиксированы в контейнере
-MINIO_PORT = os.getenv("MINIO_PORT", "9000")
+MINIO_HOST = os.getenv("MINIO_HOST")
+MINIO_PORT = os.getenv("MINIO_PORT")
 MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER")
 MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD")
 

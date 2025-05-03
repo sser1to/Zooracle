@@ -214,7 +214,14 @@ export default {
     const habitats = ref([]);     // Ареалы обитания
     const loading = ref(true);
     const error = ref('');
-    const apiBase = 'http://localhost:8000/api';
+    // Константы и настройки
+    const BACKEND_PORT = process.env.BACKEND_PORT;
+    const SITE_IP = process.env.SITE_IP;
+    
+    // Определяем базовый URL API в зависимости от окружения
+    const apiBase = process.env.NODE_ENV === 'production' 
+      ? '/api'
+      : `${SITE_IP}:${BACKEND_PORT}/api`;
     const isAdmin = ref(false);  // Статус администратора
     const route = useRoute();
     let refreshInterval = null;

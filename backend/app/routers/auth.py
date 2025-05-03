@@ -328,7 +328,7 @@ def request_password_reset(reset_request: PasswordResetRequest, db: Session = De
         db.commit()
         
         # Формируем URL для сброса пароля
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:8080")
+        frontend_url = os.getenv("FRONTEND_URL")
         reset_url = f"{frontend_url}/reset-password-confirm?token={reset_token.token}"
         
         # Отправляем письмо с инструкциями по сбросу пароля

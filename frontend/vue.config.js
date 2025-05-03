@@ -10,15 +10,15 @@ module.exports = defineConfig({
     historyApiFallback: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.FRONTEND_URL,
         changeOrigin: true
       },
       '/db-status': {
-        target: 'http://localhost:8080',
+        target: process.env.FRONTEND_URL,
         changeOrigin: true
       },
       '/health': {
-        target: 'http://localhost:8080',
+        target: process.env.FRONTEND_URL,
         changeOrigin: true
       }
     }

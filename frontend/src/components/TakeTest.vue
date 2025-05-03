@@ -166,8 +166,14 @@ import axios from 'axios';
 export default {
   name: 'TakeTest',
   setup() {
-    // Константы
-    const apiBaseUrl = 'http://localhost:8000/api';
+    // Константы и настройки
+    const BACKEND_PORT = process.env.BACKEND_PORT;
+    const SITE_IP = process.env.SITE_IP;
+    
+    // Определяем базовый URL API в зависимости от окружения
+    const apiBaseUrl = process.env.NODE_ENV === 'production' 
+      ? '/api'
+      : `${SITE_IP}:${BACKEND_PORT}/api`;
     
     // Состояния
     const loading = ref(true);

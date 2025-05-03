@@ -22,12 +22,13 @@ app = FastAPI(
 )
 
 # Настраиваем кроссдоменные запросы (CORS)
+# Получаем URL и порты из переменных окружения
+site_ip = os.environ.get("SITE_IP")
+frontend_url = os.environ.get("FRONTEND_URL")
+
 origins = [
-    "http://localhost",       # Основной локальный хост
-    "http://localhost:8080",  # Vue CLI dev server
-    "http://localhost:8081",  # альтернативный порт Vue CLI
-    "http://127.0.0.1:8080",
-    "http://127.0.0.1:8081",
+    site_ip,
+    frontend_url,
 ]
 
 app.add_middleware(
