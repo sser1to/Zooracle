@@ -1,5 +1,9 @@
 <template>
   <div id="app">
+    <!-- Прогрессбар для отображения процесса загрузки -->
+    <div class="progress-container">
+      <div class="progress-bar" :style="{ width: loadingProgress + '%', opacity: isLoading ? 1 : 0 }"></div>
+    </div>
     <router-view v-slot="{ Component }">
       <!-- Используем transition и keep-alive для плавных переходов между страницами -->
       <transition name="fade" mode="out-in">
@@ -19,6 +23,57 @@
 export default {
   name: 'App',
   
+  data() {
+    return {
+      loadingProgress: 0,
+      isLoading: false,
+      loadingTimer: null
+    }
+  },
+
+  created() {
+    // Регистрация обработчиков событий для навигации
+    this.$router.beforeEach(this.startLoading);
+    this.$router.afterEach(this.completeLoading);
+  },
+
+  methods: {
+    /**
+     * Запускает анимацию загрузки
+     * @description Метод вызывается перед каждой навигацией
+     */
+    startLoading() {
+      // Сбрасываем предыдущие таймеры, если они есть
+      clearInterval(this.loadingTimer);
+      this.loadingProgress = 0;
+      this.isLoading = true;
+
+      // Имитируем прогресс загрузки
+      this.loadingTimer = setInterval(() => {
+        if (this.loadingProgress < 90) {
+          // Постепенно увеличиваем прогресс, но не доходим до 100%
+          // Последние 10% будут добавлены при завершении загрузки
+          this.loadingProgress += (90 - this.loadingProgress) / 10;
+        }
+      }, 100);
+    },
+
+    /**
+     * Завершает анимацию загрузки
+     * @description Метод вызывается после завершения навигации
+     */
+    completeLoading() {
+      // Завершаем прогресс загрузки
+      this.loadingProgress = 100;
+      
+      // Скрываем прогрессбар через небольшую задержку
+      setTimeout(() => {
+        clearInterval(this.loadingTimer);
+        this.isLoading = false;
+      }, 300);
+    }
+  },
+  
   mounted() {
     // Логирование для отладки, чтобы убедиться, что компонент корректно монтируется
     console.log('App.vue смонтирован');
@@ -36,6 +91,23 @@ export default {
   text-align: center;
   color: #2c3e50;
   margin-top: 20px; /* Уменьшаем верхний отступ с 60px до 20px */
+}
+
+/* Стили для прогрессбара */
+.progress-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  z-index: 9999;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(to right, #4caf50, #8bc34a);
+  transition: width 0.2s, opacity 0.6s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Анимация перехода между страницами */
