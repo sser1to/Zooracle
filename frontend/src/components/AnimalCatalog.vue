@@ -1,7 +1,7 @@
 <template>
   <div class="catalog-container">
     <div class="catalog-header">
-      <h1>Каталог животных</h1>
+      <h1>Каталог редких видов животных</h1>
       <!-- Кнопка добавления нового вида (только для администраторов) -->
       <router-link v-if="isAdmin" to="/add-animal" class="add-animal-button">
         <span class="plus-icon">+</span> Добавить

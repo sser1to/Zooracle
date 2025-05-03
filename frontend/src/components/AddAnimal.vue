@@ -1,6 +1,6 @@
 <template>
   <div class="add-animal-container">
-    <h1 class="page-title">Добавление вида животных</h1>
+    <h1 class="page-title">Добавление вида</h1>
     
     <div class="form-container">
       <form @submit.prevent="submitForm" class="animal-form">

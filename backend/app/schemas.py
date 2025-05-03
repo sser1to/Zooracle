@@ -241,20 +241,44 @@ class TestQuestionResponse(TestQuestionBase):
 
 # Схемы для результатов тестов
 class TestScoreBase(BaseModel):
-    user_id: int
+    """
+    Базовая схема для результатов теста
+    
+    Attributes:
+        test_id: ID теста
+        user_id: ID пользователя
+        score: Результат теста в формате "X/Y" (правильных ответов из общего числа вопросов)
+        date: Дата прохождения теста
+    """
     test_id: int
-    score: int
+    user_id: int
+    score: str
     date: datetime
 
 
 class TestScoreCreate(BaseModel):
+    """
+    Схема для создания результата теста
+    
+    Attributes:
+        test_id: ID теста
+        correct_answers: Количество правильных ответов
+        total_questions: Общее количество вопросов
+    """
     test_id: int
-    score: int
+    correct_answers: int
+    total_questions: int
 
 
-class TestScoreResponse(TestScoreBase):
+class TestScore(TestScoreBase):
+    """
+    Схема для отображения результата теста
+    
+    Attributes:
+        id: Уникальный идентификатор результата
+    """
     id: int
-
+    
     class Config:
         orm_mode = True
 
@@ -521,42 +545,6 @@ class QuestionType(QuestionTypeBase):
     
     Attributes:
         id: Уникальный идентификатор типа вопроса
-    """
-    id: int
-    
-    class Config:
-        orm_mode = True
-
-# Схемы для тестовых результатов
-class TestScoreBase(BaseModel):
-    """
-    Базовая схема для результатов теста
-    
-    Attributes:
-        test_id: ID теста
-        user_id: ID пользователя
-        score: Количество баллов
-        date: Дата прохождения теста
-    """
-    test_id: int
-    user_id: int
-    score: int
-    date: datetime
-
-
-class TestScoreCreate(TestScoreBase):
-    """
-    Схема для создания результата теста
-    """
-    pass
-
-
-class TestScore(TestScoreBase):
-    """
-    Схема для отображения результата теста
-    
-    Attributes:
-        id: Уникальный идентификатор результата
     """
     id: int
     

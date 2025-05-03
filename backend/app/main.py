@@ -1,45 +1,41 @@
-from fastapi import FastAPI, Depends, HTTPException # type: ignore
-from fastapi.middleware.cors import CORSMiddleware # type: ignore
-from sqlalchemy.orm import Session # type: ignore
-from sqlalchemy import text # type: ignore
+from fastapi import FastAPI, Depends, HTTPException  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session  # type: ignore
+from sqlalchemy import text  # type: ignore
+from typing import Optional
 import os
 import traceback
 
-from .database import engine, get_db, init_db
+from .database import engine, get_db, init_db, Base
 from .models import Base
-from .routers import router
+from .routers import router, auth, animal_types, animals, habitats, media, tests, question, test_scores
+
+# Создаем таблицы БД
+Base.metadata.create_all(bind=engine)
 
 # Инициализация приложения FastAPI
-app = FastAPI(title="Zooracle API", version="0.1.0")
+app = FastAPI(
+    title="Zooracle API",
+    description="API для приложения Zooracle",
+    version="0.1.0"
+)
 
 # Настраиваем кроссдоменные запросы (CORS)
 origins = [
+    "http://localhost",       # Основной локальный хост
     "http://localhost:8080",  # Vue CLI dev server
-    "https://localhost:8080", # HTTPS вариант для локального Vue CLI сервера
     "http://localhost:8081",  # альтернативный порт Vue CLI
-    "https://localhost:8081", # HTTPS вариант для альтернативного порта Vue CLI
-    "http://localhost:443",   # стандартный HTTPS порт
-    "https://localhost:443",  # стандартный HTTPS порт
-    "http://localhost:3000",  # на случай, если используется другой порт
-    "https://localhost:3000", # HTTPS вариант
     "http://127.0.0.1:8080",
-    "https://127.0.0.1:8080",
     "http://127.0.0.1:8081",
-    "https://127.0.0.1:8081", 
-    "http://127.0.0.1:443",
-    "https://127.0.0.1:443",
-    "http://127.0.0.1:3000",
-    "https://127.0.0.1:3000",
-    "electron://altair",      # Для Electron-приложения
-    "file://"                 # Для доступа к файловой системе в Electron
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # Разрешаем запросы с любого источника для разработки
+    allow_origins=origins,  # Разрешаем запросы с указанных источников
     allow_credentials=True,
-    allow_methods=["*"],      # Разрешаем любые HTTP-методы
-    allow_headers=["*"],      # Разрешаем любые HTTP-заголовки
+    allow_methods=["*"],  # Разрешаем любые HTTP-методы
+    allow_headers=["*"],  # Разрешаем любые HTTP-заголовки
 )
 
 # Инициализируем структуру базы данных при запуске приложения
@@ -57,16 +53,24 @@ except Exception as e:
 # Подключаем все API-маршруты через единый роутер
 # Это объединяет все подроутеры из __init__.py
 app.include_router(router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(animal_types.router, prefix="/api/animal-types")
+app.include_router(animals.router, prefix="/api/animals")
+app.include_router(habitats.router, prefix="/api/habitats")
+app.include_router(media.router, prefix="/api/media")
+app.include_router(tests.router, prefix="/api/tests")
+app.include_router(question.router, prefix="/api/questions")
+app.include_router(test_scores.router, prefix="/api/test-scores")  # Добавляем маршрутизатор для результатов тестов
 
 @app.get("/")
-def read_root():
+async def root():
     """
-    Корневой маршрут API.
+    Корневой маршрут, возвращающий приветственное сообщение
     
     Returns:
         dict: Приветственное сообщение
     """
-    return {"message": "Welcome to Zooracle API"}
+    return {"message": "Добро пожаловать в API Zooracle!"}
 
 @app.get("/api/health")
 def health_check():
@@ -96,3 +100,18 @@ def db_status(db: Session = Depends(get_db)):
         return {"status": "success", "message": "Database connection is successful"}
     except Exception as e:
         return {"status": "error", "message": f"Database connection failed: {str(e)}"}
+
+# Перехватываем все остальные GET-запросы, чтобы обрабатывать маршруты SPA
+@app.get("/{full_path:path}")
+async def catch_all(full_path: str):
+    """
+    Обрабатывает все GET-запросы, которые не были обработаны другими маршрутами
+    
+    Args:
+        full_path (str): Полный путь запроса
+        
+    Returns:
+        FileResponse: Файл index.html для рендеринга SPA
+    """
+    # Возвращаем index.html для всех маршрутов, чтобы VueRouter мог обрабатывать маршруты на стороне клиента
+    return {"message": f"Маршрут не найден: {full_path}"}

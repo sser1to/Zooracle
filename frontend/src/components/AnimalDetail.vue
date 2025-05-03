@@ -119,10 +119,13 @@
           </div>
         </div>
         
-        <!-- Кнопка для теста -->
+        <!-- Блок с тестом -->
         <div v-if="animal.test_id" class="test-button-container">
-          <button class="test-button" @click="goToTest">
-            Пройти тест на знание вида
+          <button 
+            @click="goToTest" 
+            class="test-button"
+          >
+            Пройти тест
           </button>
         </div>
       </div>
@@ -139,7 +142,7 @@
 
 <script>
 import { ref, computed, reactive, onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
 /**
@@ -166,6 +169,7 @@ export default {
     const isVideoPlaying = ref(false); // Состояние воспроизведения видео
     
     const route = useRoute();
+    const router = useRouter();
     const apiBase = 'http://localhost:8000/api';
     
     /**
@@ -416,8 +420,16 @@ export default {
      */
     const goToTest = () => {
       if (animal.value && animal.value.test_id) {
-        // Здесь будет переход на страницу теста (функционал будет добавлен позже)
-        alert('Функционал тестирования находится в разработке');
+        // Очищаем предыдущие данные перед навигацией, используя force=true для принудительного обновления,
+        // даже если маршрут остаётся тем же самым
+        router.push({
+          name: 'take-test',
+          params: { 
+            animalId: animal.value.id,
+            testId: animal.value.test_id 
+          },
+          force: true // Принудительная навигация, даже если URL такой же
+        });
       }
     };
     

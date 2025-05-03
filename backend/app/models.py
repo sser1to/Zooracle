@@ -123,12 +123,22 @@ class Question(Base):
 
 
 class TestScore(Base):
+    """
+    Модель для хранения результатов тестов
+    
+    Attributes:
+        id (int): Уникальный идентификатор записи
+        user_id (int): Идентификатор пользователя
+        test_id (int): Идентификатор теста
+        score (str): Результат теста в формате "X/Y" (количество верных/всего вопросов)
+        date (DateTime): Дата и время прохождения теста
+    """
     __tablename__ = "test_score"
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     test_id = Column(Integer, ForeignKey("tests.id"))
-    score = Column(Integer, nullable=False)
+    score = Column(Text, nullable=False)  # Формат записи "X/Y" (правильных/всего)
     date = Column(DateTime, nullable=False)
 
     user = relationship("User", back_populates="test_scores")

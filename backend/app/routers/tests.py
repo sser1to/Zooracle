@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from typing import List
@@ -471,3 +471,145 @@ async def create_or_update_test_questions(
     
     # Получаем обновленный список вопросов с вариантами ответов
     return get_test_questions(test_id=test_id, db=db)
+
+
+@router.post("/{test_id}/check")
+async def check_test_answers(
+    test_id: int,
+    answers_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: schemas.UserResponse = Depends(get_current_user)
+):
+    """
+    Проверка ответов пользователя на вопросы теста
+    
+    Args:
+        test_id (int): ID теста
+        answers_data (dict): Данные с ответами пользователя
+        db (Session): Сессия БД
+        current_user (schemas.UserResponse): Текущий пользователь
+        
+    Returns:
+        dict: Результаты проверки теста
+        
+    Raises:
+        HTTPException: Если тест не найден
+    """
+    # Проверяем существование теста
+    test = db.query(models.Test).filter(models.Test.id == test_id).first()
+    if test is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Тест не найден"
+        )
+    
+    # Получаем список вопросов теста
+    test_question_relations = db.query(models.TestQuestion).filter(
+        models.TestQuestion.test_id == test_id
+    ).all()
+    
+    question_ids = [tq.question_id for tq in test_question_relations]
+    
+    # Если вопросов нет, возвращаем ошибку
+    if not question_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="У теста отсутствуют вопросы"
+        )
+    
+    # Получаем все вопросы теста с ответами
+    questions_with_answers = []
+    correct_answers = 0
+    question_results = []
+    
+    # Получаем ответы пользователя
+    user_answers = answers_data.get("answers", [])
+    
+    # Для каждого вопроса проверяем правильность ответов
+    for question_id in question_ids:
+        # Получаем вопрос
+        question = db.query(models.Question).filter(models.Question.id == question_id).first()
+        if not question:
+            continue
+        
+        # Получаем связи вопрос-ответ
+        question_answer_relations = db.query(models.QuestionAnswer).filter(
+            models.QuestionAnswer.question_id == question_id
+        ).all()
+        
+        answer_ids = [qa.answer_id for qa in question_answer_relations]
+        
+        # Получаем варианты ответов
+        correct_answer_options = []
+        if answer_ids:
+            answers_query = db.query(models.AnswerOption).filter(
+                models.AnswerOption.id.in_(answer_ids)
+            ).all()
+            
+            # Фильтруем только правильные ответы
+            correct_answer_options = [answer for answer in answers_query if answer.is_correct]
+        
+        # Находим ответ пользователя на этот вопрос
+        user_answer = next((a for a in user_answers if a.get("question_id") == question_id), None)
+        
+        # Если ответ пользователя не найден, помечаем как неправильный
+        if not user_answer:
+            question_results.append({
+                "question_id": question_id,
+                "is_correct": False
+            })
+            continue
+        
+        # Проверка ответа в зависимости от типа вопроса
+        is_correct = False
+        
+        # Вопрос с текстовым ответом
+        if question.question_type_id == 1:
+            # Для текстового ответа проверяем совпадение с правильным ответом (без учета регистра)
+            user_text = user_answer.get("text_answer", "").strip().lower()
+            
+            # Проверяем на совпадение с любым из правильных ответов
+            for correct_option in correct_answer_options:
+                if correct_option.name.lower() == user_text:
+                    is_correct = True
+                    break
+        
+        # Вопрос с одним или несколькими вариантами ответов
+        elif question.question_type_id in [2, 3]:
+            user_selected = set(user_answer.get("selected_options", []))
+            correct_ids = set(answer.id for answer in correct_answer_options)
+            
+            # Для радио-кнопок (один правильный ответ)
+            if question.question_type_id == 2:
+                # Правильно, если пользователь выбрал ровно один вариант и он правильный
+                is_correct = len(user_selected) == 1 and user_selected == correct_ids
+            
+            # Для чекбоксов (множественный выбор)
+            else:
+                # Правильно, если выбраны все правильные ответы и никаких лишних
+                is_correct = user_selected == correct_ids
+        
+        # Сохраняем результат для этого вопроса
+        question_results.append({
+            "question_id": question_id,
+            "is_correct": is_correct
+        })
+        
+        # Увеличиваем счетчик правильных ответов
+        if is_correct:
+            correct_answers += 1
+    
+    # Вычисляем процент правильных ответов
+    total_questions = len(question_ids)
+    score_percentage = int(round(correct_answers / total_questions * 100)) if total_questions > 0 else 0
+    
+    # Формируем результат проверки
+    result = {
+        "test_id": test_id,
+        "total_questions": total_questions,
+        "correct_answers": correct_answers,
+        "score_percentage": score_percentage,
+        "question_results": question_results
+    }
+    
+    return result

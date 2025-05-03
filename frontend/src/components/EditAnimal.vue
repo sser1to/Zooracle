@@ -1,6 +1,6 @@
 <template>
   <div class="edit-animal-container">
-    <h1 class="page-title">Редактирование вида животных</h1>
+    <h1 class="page-title">Редактирование вида</h1>
     
     <div v-if="loading" class="loading-message">
       <div class="spinner"></div>

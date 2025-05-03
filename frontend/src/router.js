@@ -9,6 +9,7 @@ import AddAnimal from './components/AddAnimal.vue';
 import EditAnimal from './components/EditAnimal.vue'; // Импортируем компонент редактирования
 import AnimalDetail from './components/AnimalDetail.vue'; // Импорт нового компонента
 import EditTest from './components/EditTest.vue'; // Импортируем компонент редактирования теста
+import TakeTest from './components/TakeTest.vue'; // Импортируем компонент прохождения теста
 import authService from './services/auth';
 
 /**
@@ -152,6 +153,18 @@ const routes = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Редактирование теста - Zooracle' 
+    }
+  },
+  
+  // Маршрут для прохождения теста пользователем
+  {
+    path: '/take-test/:animalId/:testId',
+    name: 'take-test',
+    component: TakeTest,
+    props: true,
+    meta: { 
+      requiresAuth: true,
+      title: 'Прохождение теста - Zooracle' 
     }
   },
   
