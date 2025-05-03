@@ -252,16 +252,16 @@ export default {
      */
     const loadAnimalData = async () => {
       const animalId = route.params.id;
-      if (!animalId) {
-        error.value = 'Идентификатор животного не указан';
-        loading.value = false;
-        return;
-      }
       
       try {
         loading.value = true;
         error.value = '';
         imageLoading.value = true; // Начинаем загрузку изображений
+        
+        // Если ID не указан, просто показываем состояние загрузки
+        if (!animalId) {
+          return;
+        }
         
         const response = await axios.get(`${apiBase}/animals/${animalId}`);
         animal.value = response.data;

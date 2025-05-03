@@ -253,9 +253,8 @@ export default {
       // Сбрасываем предыдущие данные
       resetTestData();
       
+      // Если ID не указан, просто оставляем состояние загрузки
       if (!testId.value) {
-        loading.value = false;
-        error.value = 'Идентификатор теста не указан';
         return;
       }
       
