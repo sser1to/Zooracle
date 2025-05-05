@@ -309,7 +309,8 @@ export default {
     const loadUserStats = async () => {
       try {
         // Загружаем количество пройденных тестов
-        const testsResponse = await axios.get(`${apiBase}/tests/scores/user/${userData.id}`);
+        // Используем корректный эндпоинт API для получения результатов тестов
+        const testsResponse = await axios.get(`${apiBase}/test-scores/`);
         if (testsResponse.data) {
           userStats.testsCompleted = testsResponse.data.length;
           
