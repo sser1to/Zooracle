@@ -91,6 +91,12 @@ export default {
   text-align: center;
   color: #2c3e50;
   margin-top: 20px; /* Уменьшаем верхний отступ с 60px до 20px */
+  /* Добавляем масштабирование для всего приложения */
+  transform: scale(1.2);
+  transform-origin: top center;
+  width: 83.33%; /* 100/1.5 чтобы компенсировать увеличение масштаба */
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Стили для прогрессбара */
@@ -126,6 +132,8 @@ body {
   margin: 0;
   padding: 0;
   background-color: #f5f5f5;
+  /* Добавляем стили для обработки масштабированного контента */
+  overflow-x: hidden;
 }
 
 /* Базовые стили для всплывающих сообщений */
@@ -145,5 +153,20 @@ body {
   background-color: #e8f5e9;
   color: #388e3c;
   border: 1px solid #c8e6c9;
+}
+
+/* Медиа-запрос для адаптации в зависимости от размера экрана */
+@media screen and (max-width: 768px) {
+  #app {
+    transform: scale(1.0);
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  #app {
+    transform: scale(1.0);
+    width: 100%;
+  }
 }
 </style>
