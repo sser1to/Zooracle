@@ -64,15 +64,21 @@
             {{ getClassLabel() }} <span class="arrow">▼</span>
           </button>
           <div class="dropdown-menu" v-show="activeDropdown === 'class'">
-            <!-- Добавляем опцию "Все классы" -->
+            <!-- Индикатор загрузки для классов животных -->
+            <div v-if="!animalTypes.length" class="dropdown-loading">
+              <div class="mini-spinner"></div>
+              <span>Загрузка классов...</span>
+            </div>
+            <!-- Опция "Все классы" -->
             <div 
+              v-else
               class="dropdown-item" 
               @click="selectClass(null)"
               :class="{ active: selectedClassId === null }"
             >
               Все классы
             </div>
-            <!-- Затем выводим все доступные классы животных -->
+            <!-- Доступные классы животных -->
             <div 
               class="dropdown-item" 
               v-for="option in animalTypes" 
@@ -93,15 +99,21 @@
             {{ getHabitatLabel() }} <span class="arrow">▼</span>
           </button>
           <div class="dropdown-menu" v-show="activeDropdown === 'habitat'">
-            <!-- Добавляем опцию "Все ареалы" -->
+            <!-- Индикатор загрузки для ареалов обитания -->
+            <div v-if="!habitats.length" class="dropdown-loading">
+              <div class="mini-spinner"></div>
+              <span>Загрузка ареалов...</span>
+            </div>
+            <!-- Опция "Все ареалы" -->
             <div 
+              v-else
               class="dropdown-item" 
               @click="selectHabitat(null)"
               :class="{ active: selectedHabitatId === null }"
             >
               Все ареалы
             </div>
-            <!-- Затем выводим все доступные ареалы обитания -->
+            <!-- Доступные ареалы обитания -->
             <div 
               class="dropdown-item" 
               v-for="option in habitats" 
@@ -329,20 +341,84 @@ export default {
     /**
      * Загружает справочные данные (типы животных, ареалы обитания)
      * @async
+     * @returns {Promise<boolean>} - Успешна ли загрузка данных
      */
     const loadReferenceData = async () => {
       try {
-        // Загружаем типы/классы животных
-        const typesResponse = await axios.get(`${apiBase}/animal-types/`);
-        animalTypes.value = typesResponse.data;
+        // Создаем промисы для параллельных запросов
+        const typesPromise = axios.get(`${apiBase}/animal-types/`);
+        const habitatsPromise = axios.get(`${apiBase}/habitats/`);
         
-        // Загружаем ареалы обитания
-        const habitatsResponse = await axios.get(`${apiBase}/habitats/`);
+        // Параллельно загружаем типы/классы животных и ареалы обитания
+        const [typesResponse, habitatsResponse] = await Promise.all([typesPromise, habitatsPromise]);
+        
+        animalTypes.value = typesResponse.data;
         habitats.value = habitatsResponse.data;
+        
+        // Проверяем, что данные действительно получены
+        if (animalTypes.value.length === 0 || habitats.value.length === 0) {
+          console.warn('Предупреждение: получены пустые справочные данные');
+          if (animalTypes.value.length === 0) {
+            console.warn('Классы животных: пустой массив');
+          }
+          if (habitats.value.length === 0) {
+            console.warn('Ареалы обитания: пустой массив');
+          }
+          
+          // Если данные пустые, пытаемся загрузить еще раз через 1 секунду
+          if (animalTypes.value.length === 0 || habitats.value.length === 0) {
+            console.log('Пытаемся повторно загрузить справочные данные...');
+            setTimeout(() => retryLoadReferenceData(), 1000);
+            return false;
+          }
+        }
+        
+        return true;
         
       } catch (err) {
         console.error('Ошибка при загрузке справочных данных:', err);
         error.value = 'Не удалось загрузить справочные данные.';
+        
+        // Пытаемся загрузить еще раз через 2 секунды
+        setTimeout(() => retryLoadReferenceData(), 2000);
+        return false;
+      }
+    };
+    
+    /**
+     * Повторная попытка загрузки справочных данных
+     * @async
+     */
+    const retryLoadReferenceData = async () => {
+      try {
+        console.log('Повторная загрузка справочных данных...');
+        
+        // Загружаем типы/классы животных если они отсутствуют или пусты
+        if (!animalTypes.value || animalTypes.value.length === 0) {
+          const typesResponse = await axios.get(`${apiBase}/animal-types/`);
+          animalTypes.value = typesResponse.data;
+          console.log('Справочник классов животных перезагружен:', animalTypes.value);
+        }
+        
+        // Загружаем ареалы обитания если они отсутствуют или пусты
+        if (!habitats.value || habitats.value.length === 0) {
+          const habitatsResponse = await axios.get(`${apiBase}/habitats/`);
+          habitats.value = habitatsResponse.data;
+          console.log('Справочник ареалов обитания перезагружен:', habitats.value);
+        }
+        
+        // Если данные все еще не загрузились, показываем сообщение пользователю
+        if ((animalTypes.value && animalTypes.value.length === 0) || 
+            (habitats.value && habitats.value.length === 0)) {
+          error.value = 'Не удалось загрузить некоторые справочные данные. Пожалуйста, обновите страницу.';
+        } else {
+          // Если данные успешно загрузились, сбрасываем сообщение об ошибке
+          if (error.value === 'Не удалось загрузить справочные данные.') {
+            error.value = '';
+          }
+        }
+      } catch (err) {
+        console.error('Ошибка при повторной загрузке справочных данных:', err);
       }
     };
     
@@ -403,7 +479,53 @@ export default {
      * @param {string} dropdown - Имя выпадающего списка
      */
     const toggleDropdown = (dropdown) => {
+      // Проверка наличия данных при открытии списка и их повторная загрузка при необходимости
+      if (dropdown === 'class' && (!animalTypes.value || animalTypes.value.length === 0)) {
+        console.log('Попытка открытия выпадающего списка классов, но данные отсутствуют. Загружаем...');
+        // Загрузка классов при клике на выпадающий список
+        axios.get(`${apiBase}/animal-types/`)
+          .then(response => {
+            animalTypes.value = response.data;
+            console.log('Классы животных загружены при открытии списка:', animalTypes.value);
+          })
+          .catch(err => {
+            console.error('Не удалось загрузить классы животных при открытии списка:', err);
+          });
+      }
+      
+      if (dropdown === 'habitat' && (!habitats.value || habitats.value.length === 0)) {
+        console.log('Попытка открытия выпадающего списка ареалов, но данные отсутствуют. Загружаем...');
+        // Загрузка ареалов при клике на выпадающий список
+        axios.get(`${apiBase}/habitats/`)
+          .then(response => {
+            habitats.value = response.data;
+            console.log('Ареалы обитания загружены при открытии списка:', habitats.value);
+          })
+          .catch(err => {
+            console.error('Не удалось загрузить ареалы обитания при открытии списка:', err);
+          });
+      }
+      
+      // Переключаем состояние выпадающего списка
       activeDropdown.value = activeDropdown.value === dropdown ? null : dropdown;
+    };
+    
+    /**
+     * Закрывает выпадающий список при клике вне его области
+     * @param {Event} event - Событие клика
+     */
+    const closeDropdownOnClickOutside = (event) => {
+      // Если нет активного выпадающего списка, ничего не делаем
+      if (!activeDropdown.value) return;
+
+      // Проверяем, является ли цель клика элементом выпадающего списка или его кнопкой
+      const isDropdownElement = event.target.closest('.dropdown-menu');
+      const isDropdownButton = event.target.closest('.dropdown-toggle');
+
+      // Если клик был вне выпадающего списка и его кнопки, закрываем список
+      if (!isDropdownElement && !isDropdownButton) {
+        activeDropdown.value = null;
+      }
     };
     
     /**
@@ -605,13 +727,45 @@ export default {
       // Настраиваем слушателя авторизации
       setupAuthListener();
       
-      // Загружаем справочные данные и животных
-      await loadReferenceData();
-      await loadFavorites();
-      await loadAnimals();
+      try {
+        // Запускаем загрузку данных
+        console.log('Начинаем загрузку данных...');
+        loading.value = true;
+        
+        // Загружаем справочные данные с возможностью повторных попыток
+        const referenceDataLoaded = await loadReferenceData();
+        if (!referenceDataLoaded) {
+          console.log('Первая попытка загрузки справочных данных не удалась, продолжаем...');
+        }
+        
+        // Загружаем избранные животные и список животных параллельно
+        await Promise.all([
+          loadFavorites().catch(err => {
+            console.error('Ошибка при загрузке избранного:', err);
+            // Не останавливаем выполнение при ошибке с избранным
+          }),
+          loadAnimals()
+        ]);
+        
+        // Проверка наличия данных после загрузки
+        if ((!animalTypes.value || animalTypes.value.length === 0) || 
+            (!habitats.value || habitats.value.length === 0)) {
+          // Если данные не загружены, выполняем ещё одну попытку
+          console.log('Данные справочников не были получены, повторная попытка...');
+          setTimeout(() => retryLoadReferenceData(), 500);
+        }
+      } catch (err) {
+        console.error('Ошибка при инициализации компонента:', err);
+        error.value = 'Не удалось загрузить данные. Попробуйте обновить страницу.';
+      } finally {
+        loading.value = false;
+      }
       
       // Настраиваем автоматическое обновление
       setupRefresh();
+
+      // Добавляем обработчик клика для закрытия выпадающих списков
+      document.addEventListener('click', closeDropdownOnClickOutside);
     });
     
     // Очистка при размонтировании компонента
@@ -626,6 +780,9 @@ export default {
         window.removeEventListener('storage', authListener);
         window.removeEventListener('localAuthChange', () => {});
       }
+
+      // Удаляем обработчик клика для закрытия выпадающих списков
+      document.removeEventListener('click', closeDropdownOnClickOutside);
     });
     
     return {
@@ -847,6 +1004,26 @@ h1 {
 .dropdown-item.active {
   background-color: #e8f5e9;
   color: #4CAF50;
+}
+
+/* Стили для индикатора загрузки в выпадающих списках */
+.dropdown-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  color: #666;
+  font-size: 14px;
+}
+
+.mini-spinner {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top: 2px solid #4CAF50;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
 }
 
 /* Стили для флажка "Избранное" */

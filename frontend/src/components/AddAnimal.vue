@@ -14,42 +14,70 @@
               required
               class="input-field"
             />
+            <!-- Сообщение об ошибке уникальности имени -->
+            <div v-if="nameErrorMessage" class="error-message-inline">{{ nameErrorMessage }}</div>
           </div>
           
-          <!-- Выпадающий список типов животных -->
+          <!-- Кастомный выпадающий список типов животных -->
           <div class="form-control">
-            <select 
-              v-model="animalData.animal_type_id" 
-              required
-              class="select-field"
-            >
-              <option value="" disabled selected>Класс</option>
-              <option 
-                v-for="type in animalTypes" 
-                :key="type.id" 
-                :value="type.id"
+            <div class="filter-group custom-select">
+              <button 
+                type="button"
+                class="dropdown-toggle" 
+                @click="toggleDropdown('class')"
               >
-                {{ type.name }}
-              </option>
-            </select>
+                {{ getClassLabel() }} <span class="arrow">▼</span>
+              </button>
+              <div class="dropdown-menu" v-show="activeDropdown === 'class'">
+                <!-- Индикатор загрузки для классов животных -->
+                <div v-if="!animalTypes.length" class="dropdown-loading">
+                  <div class="mini-spinner"></div>
+                  <span>Загрузка классов...</span>
+                </div>
+                
+                <!-- Доступные классы животных -->
+                <div 
+                  class="dropdown-item" 
+                  v-for="type in animalTypes" 
+                  :key="type.id"
+                  @click="selectClass(type.id)"
+                  :class="{ active: animalData.animal_type_id === type.id }"
+                >
+                  {{ type.name }}
+                </div>
+              </div>
+            </div>
           </div>
           
-          <!-- Выпадающий список ареалов обитания -->
+          <!-- Кастомный выпадающий список ареалов обитания -->
           <div class="form-control">
-            <select 
-              v-model="animalData.habitat_id" 
-              required
-              class="select-field"
-            >
-              <option value="" disabled selected>Ареал обитания</option>
-              <option 
-                v-for="habitat in habitats" 
-                :key="habitat.id" 
-                :value="habitat.id"
+            <div class="filter-group custom-select">
+              <button 
+                type="button"
+                class="dropdown-toggle" 
+                @click="toggleDropdown('habitat')"
               >
-                {{ habitat.name }}
-              </option>
-            </select>
+                {{ getHabitatLabel() }} <span class="arrow">▼</span>
+              </button>
+              <div class="dropdown-menu" v-show="activeDropdown === 'habitat'">
+                <!-- Индикатор загрузки для ареалов обитания -->
+                <div v-if="!habitats.length" class="dropdown-loading">
+                  <div class="mini-spinner"></div>
+                  <span>Загрузка ареалов...</span>
+                </div>
+                
+                <!-- Доступные ареалы обитания -->
+                <div 
+                  class="dropdown-item" 
+                  v-for="habitat in habitats" 
+                  :key="habitat.id"
+                  @click="selectHabitat(habitat.id)"
+                  :class="{ active: animalData.habitat_id === habitat.id }"
+                >
+                  {{ habitat.name }}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -178,9 +206,6 @@
         <div v-if="error" class="error-message">
           <p>{{ error }}</p>
         </div>
-        <div v-if="nameErrorMessage" class="error-message">
-          <p>{{ nameErrorMessage }}</p>
-        </div>
         
         <!-- Кнопки управления формой -->
         <div class="form-buttons">
@@ -205,7 +230,7 @@
 </template>
 
 <script>
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 
@@ -254,6 +279,9 @@ export default {
     const selectedVideo = ref(null);
     const selectedImages = ref([]);
     const previewImages = ref([]);
+
+    // Состояние UI для кастомных выпадающих списков
+    const activeDropdown = ref(null);
     
     /**
      * Проверяет уникальность имени вида животного
@@ -312,6 +340,98 @@ export default {
         console.error('Ошибка при загрузке справочных данных:', err);
         error.value = 'Не удалось загрузить справочные данные.';
       }
+    };
+
+    /**
+     * Переключает состояние выпадающего списка
+     * @param {string} dropdown - Имя выпадающего списка
+     */
+    const toggleDropdown = (dropdown) => {
+      // Проверка наличия данных при открытии списка и их повторная загрузка при необходимости
+      if (dropdown === 'class' && (!animalTypes.value || animalTypes.value.length === 0)) {
+        console.log('Попытка открытия выпадающего списка классов, но данные отсутствуют. Загружаем...');
+        // Загрузка классов при клике на выпадающий список
+        axios.get(`${apiBase}/animal-types/`)
+          .then(response => {
+            animalTypes.value = response.data;
+            console.log('Классы животных загружены при открытии списка:', animalTypes.value);
+          })
+          .catch(err => {
+            console.error('Не удалось загрузить классы животных при открытии списка:', err);
+          });
+      }
+      
+      if (dropdown === 'habitat' && (!habitats.value || habitats.value.length === 0)) {
+        console.log('Попытка открытия выпадающего списка ареалов, но данные отсутствуют. Загружаем...');
+        // Загрузка ареалов при клике на выпадающий список
+        axios.get(`${apiBase}/habitats/`)
+          .then(response => {
+            habitats.value = response.data;
+            console.log('Ареалы обитания загружены при открытии списка:', habitats.value);
+          })
+          .catch(err => {
+            console.error('Не удалось загрузить ареалы обитания при открытии списка:', err);
+          });
+      }
+      
+      // Переключаем состояние выпадающего списка
+      activeDropdown.value = activeDropdown.value === dropdown ? null : dropdown;
+    };
+
+    /**
+     * Закрывает выпадающий список при клике вне его области
+     * @param {Event} event - Событие клика
+     */
+    const closeDropdownOnClickOutside = (event) => {
+      // Если нет активного выпадающего списка, ничего не делаем
+      if (!activeDropdown.value) return;
+
+      // Проверяем, является ли цель клика элементом выпадающего списка или его кнопкой
+      const isDropdownElement = event.target.closest('.dropdown-menu');
+      const isDropdownButton = event.target.closest('.dropdown-toggle');
+
+      // Если клик был вне выпадающего списка и его кнопки, закрываем список
+      if (!isDropdownElement && !isDropdownButton) {
+        activeDropdown.value = null;
+      }
+    };
+
+    /**
+     * Получает метку выбранного класса животного
+     * @returns {string} Метка выбранного класса
+     */
+    const getClassLabel = () => {
+      if (!animalData.animal_type_id) return 'Класс';
+      const classType = animalTypes.value.find(t => t.id === animalData.animal_type_id);
+      return classType ? classType.name : 'Класс';
+    };
+    
+    /**
+     * Получает метку выбранного ареала обитания
+     * @returns {string} Метка выбранного ареала
+     */
+    const getHabitatLabel = () => {
+      if (!animalData.habitat_id) return 'Ареал обитания';
+      const habitat = habitats.value.find(h => h.id === animalData.habitat_id);
+      return habitat ? habitat.name : 'Ареал обитания';
+    };
+
+    /**
+     * Выбирает класс животного для формы
+     * @param {number} classId - ID класса животного
+     */
+    const selectClass = (classId) => {
+      animalData.animal_type_id = classId;
+      activeDropdown.value = null;
+    };
+    
+    /**
+     * Выбирает ареал обитания для формы
+     * @param {number} habitatId - ID ареала обитания
+     */
+    const selectHabitat = (habitatId) => {
+      animalData.habitat_id = habitatId;
+      activeDropdown.value = null;
     };
     
     /**
@@ -638,6 +758,15 @@ export default {
       
       // Загружаем справочные данные
       loadReferenceData();
+      
+      // Добавляем обработчик клика для закрытия выпадающих списков
+      document.addEventListener('click', closeDropdownOnClickOutside);
+    });
+    
+    // Очищаем при размонтировании компонента
+    onBeforeUnmount(() => {
+      // Удаляем обработчик клика для закрытия выпадающих списков
+      document.removeEventListener('click', closeDropdownOnClickOutside);
     });
     
     return {
@@ -660,7 +789,14 @@ export default {
       handleVideoUpload,
       removeVideo,
       submitForm,
-      MAX_IMAGES
+      MAX_IMAGES,
+      // Новые методы для кастомных выпадающих списков
+      toggleDropdown,
+      getClassLabel,
+      getHabitatLabel,
+      selectClass,
+      selectHabitat,
+      activeDropdown
     };
   }
 };
@@ -731,6 +867,83 @@ export default {
 .textarea-field {
   resize: vertical;
   min-height: 150px;
+}
+
+/* Стили для кастомных выпадающих списков */
+.custom-select {
+  position: relative;
+}
+
+.dropdown-toggle {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+  background-color: #fff;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdown-item {
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.dropdown-item:hover {
+  background-color: #f0f0f0;
+}
+
+.dropdown-item.active {
+  background-color: #4CAF50;
+  color: #fff;
+}
+
+.dropdown-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.mini-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top: 2px solid #4CAF50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.arrow {
+  font-size: 10px;
+  margin-left: 5px;
 }
 
 /* Стили для загрузки файлов */
@@ -856,6 +1069,12 @@ export default {
   padding: 10px;
   border-radius: 4px;
   font-size: 14px;
+}
+
+.error-message-inline {
+  color: #d32f2f;
+  font-size: 12px;
+  margin-top: 5px;
 }
 
 /* Стили кнопок формы */
