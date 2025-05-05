@@ -656,7 +656,8 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain; /* Изменено с 'cover' на 'contain' для сохранения пропорций видео */
+  background-color: black; /* Добавлен черный фон для рамок */
 }
 
 .play-button {
@@ -759,7 +760,7 @@ export default {
 
 /* Кнопка для теста */
 .test-button-container {
-  margin-top: auto;
+  margin-top: 10px;
 }
 
 .test-button {

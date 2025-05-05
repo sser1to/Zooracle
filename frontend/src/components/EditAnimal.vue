@@ -238,13 +238,6 @@
                 Ваш браузер не поддерживает видео.
               </video>
             </div>
-            <button 
-              type="button" 
-              @click="removeCurrentVideo" 
-              class="remove-video-button"
-            >
-              Удалить
-            </button>
           </div>
         </div>
 
