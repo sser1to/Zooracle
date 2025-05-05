@@ -422,13 +422,11 @@ export default {
                     const [correct, total] = score.score.split('/');
                     return Math.round((parseInt(correct) / parseInt(total)) * 100);
                   })(),
-                  // Форматирование даты
+                  // Форматирование даты (только дата без времени)
                   formattedDate: new Date(score.date).toLocaleString('ru-RU', { 
                     day: '2-digit', 
                     month: '2-digit', 
-                    year: 'numeric', 
-                    hour: '2-digit', 
-                    minute: '2-digit'
+                    year: 'numeric'
                   })
                 };
               } catch (err) {
