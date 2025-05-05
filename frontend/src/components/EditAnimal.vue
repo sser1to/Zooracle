@@ -679,11 +679,16 @@ export default {
         // Получаем все фотографии животного
         try {
           console.log(`Запрашиваем фотографии для животного с ID: ${animalId.value}`);
-          const photosResponse = await axios.get(`${apiBase}/animals/${animalId.value}/photos`);
+          const photosResponse = await axios.get(`${apiBase}/animals/${animalId.value}/photos/`);
           console.log('Получен ответ с фотографиями:', photosResponse.data);
           
           // Проверка структуры ответа
           if (Array.isArray(photosResponse.data)) {
+            // Детальное логирование для отладки структуры
+            if (photosResponse.data.length > 0) {
+              console.log('Структура первой фотографии:', JSON.stringify(photosResponse.data[0]));
+            }
+            
             existingImages.value = photosResponse.data || [];
             
             // Подробное логирование каждой фотографии для отладки
