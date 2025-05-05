@@ -10,6 +10,7 @@ import EditAnimal from './components/EditAnimal.vue'; // Импортируем 
 import AnimalDetail from './components/AnimalDetail.vue'; // Импорт нового компонента
 import EditTest from './components/EditTest.vue'; // Импортируем компонент редактирования теста
 import TakeTest from './components/TakeTest.vue'; // Импортируем компонент прохождения теста
+import ProfilePage from './components/ProfilePage.vue'; // Импортируем компонент личного кабинета
 import authService from './services/auth';
 
 /**
@@ -60,6 +61,14 @@ const routes = [
     meta: { requiresAuth: false, title: 'Подтверждение email - Zooracle' }
   },
   
+  // Маршрут для личного кабинета пользователя
+  {
+    path: '/profile',
+    name: 'profile',
+    component: ProfilePage,
+    meta: { requiresAuth: true, title: 'Личный кабинет - Zooracle' }
+  },
+  
   // Альтернативный маршрут для ссылок восстановления пароля с токеном в разных форматах
   {
     path: '/reset-password-confirm',
@@ -73,30 +82,24 @@ const routes = [
   {
     path: '/logout',
     name: 'logout',
-    // Используем простой компонент вместо redirect для более надежной работы
-    component: {
+    // Используем функцию перенаправления вместо компонента для более надежной работы
+    redirect: () => {
       /**
-       * Компонент логаута, который выполняет выход и перенаправляет пользователя
-       * @returns {null} Не возвращает элементы DOM
+       * Функция выхода из системы и перенаправления
+       * Выполняется непосредственно при обработке маршрута
        */
-      render: () => null,
-      /**
-       * Хук жизненного цикла, выполняющийся при создании компонента
-       * Обеспечивает выход из системы и перенаправление на страницу входа
-       */
-      created() {
-        // Проверка аутентификации и выход из аккаунта
-        if (authService.isAuthenticated()) {
-          console.log('Выполняется выход из системы...');
-          authService.logout();
-          console.log('Пользователь успешно вышел из системы');
-        } else {
-          console.log('Пользователь не был авторизован, перенаправление на страницу входа');
-        }
-        
-        // Перенаправление на страницу входа
-        this.$router.push('/login');
-      }
+      console.log('Выполняется выход из системы...');
+      
+      // Выход из аккаунта
+      authService.logout();
+      
+      // Отправляем событие для компонентов, чтобы они знали о выходе пользователя
+      window.dispatchEvent(new Event('localAuthChange'));
+      
+      console.log('Пользователь успешно вышел из системы, перенаправление на /login');
+      
+      // Возвращаем объект перенаправления
+      return { path: '/login' };
     },
     meta: { title: 'Выход - Zooracle' }
   },

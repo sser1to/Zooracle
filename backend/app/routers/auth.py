@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Security
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import User, PasswordResetToken
@@ -568,3 +569,91 @@ async def get_current_admin(current_user: UserResponse = Depends(get_current_use
             detail="Требуются права администратора"
         )
     return current_user
+
+
+# Определяем схему для обновления логина
+class LoginUpdate(BaseModel):
+    """
+    Схема для обновления логина пользователя
+    
+    Attributes:
+        login (str): Новый логин пользователя
+    """
+    login: str
+
+
+@router.put("/users/update-login", status_code=status.HTTP_200_OK)
+async def update_user_login(
+    login_data: LoginUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Обновляет логин текущего авторизованного пользователя
+    
+    Args:
+        login_data (LoginUpdate): Новый логин пользователя
+        current_user (UserResponse): Текущий авторизованный пользователь
+        db (Session): Сессия базы данных
+    
+    Returns:
+        dict: Сообщение об успешном обновлении логина
+    
+    Raises:
+        HTTPException: 400 - если логин не соответствует требованиям
+                       409 - если логин уже занят
+                       500 - при других ошибках
+    """
+    logger.info(f"Запрос на обновление логина для пользователя {current_user.id}")
+    
+    try:
+        # Проверяем минимальную длину нового логина
+        if len(login_data.login) < 3:
+            logger.warning(f"Ошибка: логин слишком короткий (меньше 3 символов)")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Логин должен содержать не менее 3 символов"
+            )
+        
+        # Проверяем, что логин не занят другим пользователем
+        existing_user = db.query(User).filter(
+            User.login == login_data.login,
+            User.id != current_user.id  # Исключаем проверку текущего пользователя
+        ).first()
+        
+        if existing_user:
+            logger.warning(f"Ошибка: логин {login_data.login} уже занят")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Этот логин уже занят. Пожалуйста, выберите другой"
+            )
+        
+        # Получаем пользователя из БД по ID
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if not user:
+            logger.error(f"Не удалось найти пользователя с ID {current_user.id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Пользователь не найден"
+            )
+        
+        # Старое значение для логирования
+        old_login = user.login
+        
+        # Обновляем логин
+        user.login = login_data.login
+        db.commit()
+        
+        logger.info(f"Логин успешно изменен с {old_login} на {login_data.login} для пользователя {current_user.id}")
+        
+        return {"message": "Логин успешно обновлен"}
+        
+    except HTTPException:
+        # Пробрасываем HTTPException дальше
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при обновлении логина: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Произошла ошибка при обновлении логина: {str(e)}"
+        )

@@ -2,10 +2,20 @@
   <div class="catalog-container">
     <div class="catalog-header">
       <h1>Каталог редких видов</h1>
-      <!-- Кнопка добавления нового вида (только для администраторов) -->
-      <router-link v-if="isAdmin" to="/add-animal" class="add-animal-button">
-        <span class="plus-icon">+</span> Добавить
-      </router-link>
+      
+      <div class="header-actions">
+        <!-- Ссылка на личный кабинет -->
+        <router-link to="/profile" class="profile-button" title="Личный кабинет">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="profile-icon">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+          </svg>
+        </router-link>
+        
+        <!-- Кнопка добавления нового вида (только для администраторов) -->
+        <router-link v-if="isAdmin" to="/add-animal" class="add-animal-button">
+          <span class="plus-icon">+</span> Добавить
+        </router-link>
+      </div>
     </div>
     
     <!-- Панель фильтров и поиска -->
@@ -654,12 +664,41 @@ export default {
 </script>
 
 <style scoped>
-/* Стили для заголовка и кнопки добавления */
+/* Стили для заголовка и кнопок */
 .catalog-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #2196F3;
+  color: white;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  text-decoration: none;
+  transition: background-color 0.3s;
+}
+
+.profile-button:hover {
+  background-color: #1976D2;
+}
+
+.profile-icon {
+  width: 24px;
+  height: 24px;
+  fill: white;
 }
 
 .add-animal-button {

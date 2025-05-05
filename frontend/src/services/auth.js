@@ -99,16 +99,18 @@ class AuthService {
   }
 
   /**
-   * Восстановление пароля пользователя
+   * Отправка запроса на восстановление пароля
    * @param {string} email - Email для восстановления пароля
    * @returns {Promise<Object>} - Результат запроса на восстановление
    */
   async resetPassword(email) {
     try {
-      const response = await axios.post(`${API_URL}/auth/reset-password`, { email });
+      // Используем правильный метод и URL для запроса сброса пароля
+      const response = await axios.post(`${API_URL}/auth/reset-password/request`, { email });
+      console.log('Запрос на восстановление пароля отправлен успешно');
       return response.data;
     } catch (error) {
-      console.error('Ошибка при запросе восстановления пароля:', error);
+      console.error('Ошибка при запросе сброса пароля:', error);
       throw error;
     }
   }

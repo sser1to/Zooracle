@@ -151,6 +151,7 @@ export default {
 
       try {
         console.log('Проверка валидности токена на сервере');
+        // Исправляем: используем GET-метод для проверки токена
         const apiUrl = `${axios.defaults.baseURL}/api/auth/reset-password/validate-token/${token.value}`;
         console.log(`Используется URL API: ${apiUrl}`);
         
