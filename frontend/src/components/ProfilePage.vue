@@ -1,6 +1,5 @@
 <template>
   <div class="profile-container">
-    <img alt="Лого" src="../assets/logo.png" class="logo">
     <h1>Личный кабинет</h1>
     
     <div v-if="loading" class="loading-container">
