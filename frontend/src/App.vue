@@ -92,9 +92,9 @@ export default {
   color: #2c3e50;
   margin-top: 20px; /* Уменьшаем верхний отступ с 60px до 20px */
   /* Добавляем масштабирование для всего приложения */
-  transform: scale(1.2);
+  transform: scale(1.15);
   transform-origin: top center;
-  width: 83.33%; /* 100/1.5 чтобы компенсировать увеличение масштаба */
+  width: 86.95%; /* 100/1.5 чтобы компенсировать увеличение масштаба */
   margin-left: auto;
   margin-right: auto;
 }
@@ -155,7 +155,13 @@ body {
   border: 1px solid #c8e6c9;
 }
 
-/* Медиа-запрос для адаптации в зависимости от размера экрана */
+@media screen and (max-width: 1024px) {
+  #app {
+    transform: scale(1.0);
+    width: 100%;
+  }
+}
+
 @media screen and (max-width: 768px) {
   #app {
     transform: scale(1.0);

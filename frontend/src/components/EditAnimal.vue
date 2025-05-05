@@ -148,7 +148,6 @@
                 :src="getImageUrl(image.photo_id)" 
                 alt="Изображение" 
                 class="gallery-image"
-                @click="openImagePreview(image.photo_id)"
                 @error="handleImageError"
               />
               <button 
@@ -1469,10 +1468,10 @@ export default {
 }
 
 .gallery-image {
-  width: 100px;
-  height: 100px;
+  width: 200px;
+  height: 200px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 8px; /* Увеличиваем также и радиус скругления для лучшего визуального эффекта */
 }
 
 .remove-image-button,
@@ -1603,7 +1602,6 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 15px;
-  margin-top: 20px;
 }
 
 .cancel-button,
@@ -1821,37 +1819,37 @@ export default {
   }
 }
 
-/* Стили модального окна для изображений оставляем без изменений */
+/* Стили модального окна для изображений - улучшенный вариант */
 .image-modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(0, 0, 0, 0.85); /* Более темный фон для лучшего контраста */
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  overflow: hidden; /* Предотвращаем прокрутку страницы при открытом модальном окне */
 }
 
 .image-modal-content {
   position: relative;
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  max-width: 90%; /* Увеличиваем максимальную ширину модального окна */
-  max-height: 90%; /* Увеличиваем максимальную высоту модального окна */
-  overflow: auto; /* Добавляем прокрутку для очень больших медиафайлов */
+  background-color: transparent; /* Делаем фон прозрачным */
+  max-width: 95%; /* Увеличиваем максимальную ширину модального окна */
+  max-height: 95%; /* Увеличиваем максимальную высоту модального окна */
+  overflow: hidden; /* Скрываем возможные прокрутки */
   width: auto; /* Отменяем фиксированную ширину */
-  display: flex;
-  flex-direction: column;
+  padding: 0; /* Убираем отступы, чтобы не было белых полос */
+  border-radius: 0; /* Убираем скругления, чтобы не было белых углов */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); /* Добавляем тень для лучшего визуального отделения */
 }
 
 /* Стили для полноэкранного просмотра изображений */
 .image-preview-full {
   max-width: 100%;
-  max-height: 70vh; /* Ограничиваем по высоте окна браузера */
+  max-height: 90vh; /* Ограничиваем по высоте окна браузера */
   object-fit: contain; /* Сохраняем соотношение сторон изображения */
   display: block;
   margin: 0 auto;
@@ -1860,46 +1858,41 @@ export default {
 /* Улучшенный стиль для кнопки закрытия модального окна */
 .image-modal-content .close-modal {
   position: absolute;
-  top: 7px;
-  right: 7px;
-  width: 30px;
-  height: 30px;
-  font-size: 22px;
+  top: 15px;
+  right: 15px;
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
   line-height: 1;
   font-weight: bold;
   color: #ffffff;
-  background-color: #ff5252; /* Красный фон для лучшей видимости */
-  border: none;
+  background-color: rgba(255, 82, 82, 0.8); /* Полупрозрачный фон */
+  border: 2px solid white; /* Белая граница для лучшей видимости на любом фоне */
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 100; /* Убеждаемся, что кнопка находится поверх всего */
-  box-shadow: 0 0 5px rgba(0,0,0,0.5);
+  z-index: 100;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease; /* Плавное изменение при наведении */
 }
 
-/* Адаптивные стили для видеоплеера */
+/* Эффект при наведении на кнопку закрытия */
+.image-modal-content .close-modal:hover {
+  background-color: rgba(255, 82, 82, 1); /* Полностью непрозрачный при наведении */
+  transform: scale(1.1); /* Небольшое увеличение для обратной связи */
+}
+
+/* Адаптивные стили для разных размеров экрана */
 @media (max-width: 768px) {
-  .video-modal-content {
-    max-width: 95vw;
+  .image-modal-content {
+    max-width: 98%;
+    max-height: 90%;
+  }
+  
+  .image-preview-full {
     max-height: 85vh;
-    padding: 5px;
-  }
-
-  .video-container {
-    padding-bottom: 25%; /* Увеличиваем соотношение сторон для мобильных */
-  }
-}
-
-@media (max-width: 480px) {
-  .video-modal-content {
-    max-width: 100vw;
-    max-height: 80vh;
-  }
-
-  .video-player {
-    max-height: 80vh;
   }
 }
 
