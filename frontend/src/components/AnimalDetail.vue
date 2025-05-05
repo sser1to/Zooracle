@@ -1,5 +1,12 @@
 <template>
   <div class="animal-detail-container">
+    <!-- Кнопка "На главную" (перемещена в верх страницы) -->
+    <div class="back-link-container">
+      <router-link to="/" class="back-link">
+        <span class="back-arrow">←</span> На главную
+      </router-link>
+    </div>
+
     <!-- Основное содержимое страницы разделено на 2 колонки -->
     <div v-if="loading" class="loading-message">
       <div class="spinner"></div>
@@ -129,13 +136,6 @@
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- Кнопка "На главную" (всегда внизу страницы) -->
-    <div class="navigation-footer">
-      <router-link to="/" class="home-button">
-        <span class="arrow-icon">←</span> На главную
-      </router-link>
     </div>
   </div>
 </template>
@@ -511,6 +511,31 @@ export default {
   flex-direction: column;
 }
 
+/* Контейнер для кнопки "На главную" */
+.back-link-container {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: #8BC34A;
+  font-weight: 500;
+  transition: color 0.3s;
+  padding: 8px 0;
+}
+
+.back-link:hover {
+  color: #7CB342;
+}
+
+.back-arrow {
+  font-size: 18px;
+  margin-right: 8px;
+}
+
 /* Основное содержимое со сдвоенными колонками */
 .animal-content {
   display: flex;
@@ -794,34 +819,6 @@ export default {
   fill: #2196F3;
 }
 
-/* Нижняя навигационная панель */
-.navigation-footer {
-  margin-top: 20px;
-  text-align: left; /* Выравнивание содержимого по левому краю */
-  width: 100%; /* Занимаем всю ширину */
-}
-
-.home-button {
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
-  color: #8BC34A;
-  font-weight: bold;
-  border: 2px solid #8BC34A;
-  border-radius: 4px;
-  padding: 8px 16px;
-  transition: color 0.3s, border-color 0.3s;
-}
-
-.home-button:hover {
-  color: #7CB342;
-  border-color: #7CB342;
-}
-
-.arrow-icon {
-  margin-right: 5px;
-}
-
 /* Сообщения о загрузке и ошибках */
 .loading-message,
 .error-message {
@@ -863,10 +860,6 @@ export default {
 @media (max-width: 768px) {
   .animal-content {
     flex-direction: column;
-  }
-  
-  .main-image-container {
-    aspect-ratio: 16 / 9; /* Изменяем соотношение для мобильных */
   }
   
   .thumbnails-container {
