@@ -111,10 +111,10 @@
         </div>
       </div>
       
-      <!-- Секция статистики (можно добавить потом) -->
+      <!-- Секция статистики с условным отображением для админов -->
       <div class="profile-section">
         <h2>Статистика</h2>
-        <div class="stats-grid">
+        <div class="stats-grid" :class="{ 'admin-stats-grid': userData.is_admin }">
           <div class="stat-card">
             <div class="stat-value">{{ userStats.testsCompleted || 0 }}</div>
             <div class="stat-label">Пройдено тестов</div>
@@ -123,9 +123,52 @@
             <div class="stat-value">{{ userStats.averageScore || '0%' }}</div>
             <div class="stat-label">Средний результат</div>
           </div>
-          <div class="stat-card">
+          <!-- Блок "В избранном" отображается только для обычных пользователей -->
+          <div v-if="!userData.is_admin" class="stat-card">
             <div class="stat-value">{{ userStats.favoritesCount || 0 }}</div>
             <div class="stat-label">В избранном</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Секция пройденных тестов -->
+      <div class="profile-section">
+        <h2>Пройденные тесты</h2>
+        
+        <!-- Индикатор загрузки -->
+        <div v-if="loadingTestScores" class="loading-tests">
+          <div class="spinner spinner-small"></div>
+          <p>Загрузка тестов...</p>
+        </div>
+        
+        <!-- Сообщение, если тестов нет -->
+        <div v-else-if="testScores.length === 0 && !loadingTestScores" class="no-tests-message">
+          У вас пока нет пройденных тестов
+        </div>
+        
+        <!-- Список тестов -->
+        <div v-if="testScores.length > 0" class="test-scores-list">
+          <div class="test-scores-header">
+            <div class="test-name-header">Название теста</div>
+            <div class="test-score-header">Результат</div>
+            <div class="test-date-header">Дата</div>
+          </div>
+          
+          <div class="test-scores-scroll-container">
+            <div 
+              v-for="(test, index) in testScores" 
+              :key="index" 
+              class="test-score-item"
+            >
+              <div class="test-name">{{ test.testName }}</div>
+              <div class="test-score">
+                <div class="score-badge" :class="getScoreClass(test.percentScore)">
+                  {{ test.percentScore }}%
+                </div>
+                <div class="score-detail">{{ test.score }}</div>
+              </div>
+              <div class="test-date">{{ test.formattedDate }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -172,7 +215,7 @@ export default {
     const router = useRouter();
     const route = useRoute(); // Добавляем доступ к текущему маршруту
     const loading = ref(true);
-    const error = ref('');
+    const error = ref(false);
     
     // Данные пользователя
     const userData = reactive({
@@ -188,6 +231,10 @@ export default {
       averageScore: '0%',
       favoritesCount: 0
     });
+    
+    // Список пройденных тестов
+    const testScores = ref([]);
+    const loadingTestScores = ref(false);
     
     // Состояния для редактирования логина
     const isEditingLogin = ref(false);
@@ -281,6 +328,9 @@ export default {
         // Загружаем статистику пользователя
         await loadUserStats();
         
+        // Автоматически загружаем историю тестов
+        loadTestScores();
+        
       } catch (err) {
         console.error('Ошибка при загрузке данных пользователя:', err);
         error.value = 'Не удалось загрузить данные пользователя';
@@ -337,6 +387,73 @@ export default {
       } catch (err) {
         console.error('Ошибка при загрузке статистики:', err);
         // Не показываем ошибку пользователю, т.к. это не критичная информация
+      }
+    };
+    
+    /**
+     * Загрузка подробной информации о пройденных тестах
+     * @async
+     */
+    const loadTestScores = async () => {
+      loadingTestScores.value = true;
+      testScores.value = []; // Очистка предыдущих данных
+      
+      try {
+        // Получаем список всех пройденных тестов
+        const testsResponse = await axios.get(`${apiBase}/test-scores/`);
+        if (testsResponse.data && testsResponse.data.length > 0) {
+          // Сохраняем базовую информацию о тестах
+          const testScoresData = testsResponse.data;
+          
+          // Загружаем информацию о каждом тесте для получения названия
+          const testDetails = await Promise.all(
+            testScoresData.map(async (score) => {
+              try {
+                // Получаем информацию о тесте
+                const testResponse = await axios.get(`${apiBase}/tests/${score.test_id}`);
+                const testName = testResponse.data.name;
+                
+                // Формируем объект с полной информацией о результате теста
+                return {
+                  ...score,
+                  testName,
+                  // Расчет процента правильных ответов
+                  percentScore: (() => {
+                    const [correct, total] = score.score.split('/');
+                    return Math.round((parseInt(correct) / parseInt(total)) * 100);
+                  })(),
+                  // Форматирование даты
+                  formattedDate: new Date(score.date).toLocaleString('ru-RU', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit'
+                  })
+                };
+              } catch (err) {
+                console.error(`Ошибка при загрузке информации о тесте ID ${score.test_id}:`, err);
+                return {
+                  ...score,
+                  testName: 'Неизвестный тест',
+                  percentScore: 0,
+                  formattedDate: new Date(score.date).toLocaleString('ru-RU')
+                };
+              }
+            })
+          );
+          
+          // Сортируем результаты по дате (сначала самые новые)
+          testScores.value = testDetails.sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          
+          console.log('Загружены результаты тестов:', testScores.value);
+        }
+      } catch (err) {
+        console.error('Ошибка при загрузке результатов тестов:', err);
+      } finally {
+        loadingTestScores.value = false;
       }
     };
     
@@ -445,6 +562,17 @@ export default {
       }, 5000);
     };
     
+    /**
+     * Определяет класс для отображения результата теста
+     * @param {number} score - Процентная оценка результата теста
+     * @returns {string} - Класс для отображения (low, medium, high)
+     */
+    const getScoreClass = (score) => {
+      if (score < 50) return 'low';
+      if (score < 75) return 'medium';
+      return 'high';
+    };
+    
     // Запускаем загрузку данных при монтировании компонента
     onMounted(() => {
       // Настраиваем axios для работы с токенами
@@ -482,6 +610,8 @@ export default {
     return {
       userData,
       userStats,
+      testScores,
+      loadingTestScores,
       loading,
       error,
       isEditingLogin,
@@ -494,7 +624,9 @@ export default {
       startEditingLogin,
       cancelEditingLogin,
       saveLogin,
-      requestPasswordReset
+      requestPasswordReset,
+      loadTestScores,
+      getScoreClass
     };
   }
 }
@@ -730,6 +862,11 @@ h2 {
   gap: 20px;
 }
 
+/* Для админа - только две карточки статистики */
+.admin-stats-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .stat-card {
   background-color: #f5f5f5;
   border-radius: 8px;
@@ -747,6 +884,130 @@ h2 {
 
 .stat-label {
   font-size: 14px;
+  color: #757575;
+}
+
+/* Стили для блока пройденных тестов */
+.test-scores-list {
+  margin-top: 20px;
+}
+
+.test-scores-header {
+  display: flex;
+  padding: 0 10px;
+  font-weight: bold;
+  color: #555;
+  margin-bottom: 10px;
+}
+
+.test-name-header {
+  flex: 2;
+  text-align: left;
+}
+
+.test-score-header,
+.test-date-header {
+  flex: 1;
+  text-align: center;
+}
+
+.test-scores-scroll-container {
+  /* Устанавливаем фиксированную высоту для отображения ровно 3 записей */
+  height: 150px; /* Высота для 3 записей при высоте строки 50px */
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.test-score-item {
+  display: flex;
+  padding: 12px 10px;
+  border-bottom: 1px solid #e0e0e0;
+  align-items: center;
+  /* Устанавливаем фиксированную высоту для строки */
+  height: 26px; /* 50px с учётом padding */
+}
+
+.test-score-item:hover {
+  background-color: #f0f0f0;
+}
+
+.test-score-item:last-child {
+  border-bottom: none;
+}
+
+.test-name {
+  flex: 2;
+  text-align: left;
+  font-weight: 500;
+}
+
+.test-score,
+.test-date {
+  flex: 1;
+  text-align: center;
+}
+
+.score-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+}
+
+.score-badge.low {
+  background-color: #f44336;
+}
+
+.score-badge.medium {
+  background-color: #ff9800;
+}
+
+.score-badge.high {
+  background-color: #4CAF50;
+}
+
+.score-detail {
+  font-size: 12px;
+  color: #757575;
+  margin-top: 3px;
+}
+
+.load-tests-button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 10px;
+}
+
+.load-tests-button:hover {
+  background-color: #45a049;
+}
+
+.no-tests-message {
+  padding: 15px;
+  text-align: center;
+  color: #757575;
+  font-style: italic;
+}
+
+.loading-tests {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+}
+
+.loading-tests p {
+  margin-top: 10px;
   color: #757575;
 }
 
@@ -833,6 +1094,12 @@ h2 {
   border-left-color: #4CAF50;
   animation: spin 1s linear infinite;
   margin: 0 auto 15px;
+}
+
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
 }
 
 @keyframes spin {
