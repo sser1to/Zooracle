@@ -723,45 +723,30 @@ export default {
   font-weight: bold;
 }
 
-/* Основные стили контейнера без прокрутки */
+/* Основные стили контейнера */
 .catalog-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 10px 20px; /* Уменьшаем верхний и нижний padding с 20px до 10px */
-  /* Устанавливаем фиксированную высоту и запрещаем прокрутку */
-  height: calc(100vh - 20px); /* Корректируем высоту с учетом уменьшенного margin в App.vue */
-  overflow: hidden; /* Запрещаем прокрутку контейнера */
+  padding: 10px 20px;
+  /* Вместо фиксированной высоты и запрета прокрутки используем min-height */
+  min-height: calc(100vh - 20px);
+  /* Разрешаем прокрутку контейнера */
+  overflow-y: auto;
+  /* Добавляем отступ снизу для десктопной версии */
+  padding-bottom: 50px; /* Значительный отступ снизу для предотвращения обрезания карточек */
 }
 
-/* Стили для сетки животных с собственной прокруткой */
+/* Стили для сетки животных без ограничения высоты */
 .animals-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 20px;
-  max-height: 65vh; /* Немного уменьшаем высоту для предотвращения двойной прокрутки */
-  overflow-y: auto; /* Добавляем вертикальную прокрутку только для сетки */
-  padding-right: 10px; /* Отступ справа для полосы прокрутки */
-  padding-top: 15px; /* Отступ сверху */
-  padding-left: 10px; /* Добавляем отступ слева для симметрии */
+  padding-right: 10px;
+  padding-top: 15px;
+  padding-left: 10px;
   padding-bottom: 15px;
-  
-  /* Стилизация полосы прокрутки для современных браузеров */
-  scrollbar-width: thin; /* Для Firefox */
-  scrollbar-color: #aaa transparent; /* Для Firefox */
-}
-
-/* Стилизация полосы прокрутки для WebKit (Chrome, Safari) */
-.animals-grid::-webkit-scrollbar {
-  width: 6px; /* Ширина полосы прокрутки */
-}
-
-.animals-grid::-webkit-scrollbar-track {
-  background: transparent; /* Фон полосы */
-}
-
-.animals-grid::-webkit-scrollbar-thumb {
-  background-color: #aaa; /* Цвет ползунка */
-  border-radius: 20px; /* Скругление углов ползунка */
+  /* Добавляем отступ снизу для контейнера животных */
+  margin-bottom: 30px;
 }
 
 h1 {
