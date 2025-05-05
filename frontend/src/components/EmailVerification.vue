@@ -27,6 +27,7 @@
                 v-model="codeDigits[index]"
                 @input="onDigitInput(index)"
                 @keydown="onDigitKeydown($event, index)"
+                @paste="handlePaste($event)"
                 ref="digitInputs"
                 :disabled="isVerifying || isLoading"
               />
@@ -193,6 +194,38 @@ export default {
       if (event.key === 'Backspace' && this.codeDigits[index] === '' && index > 0) {
         this.$refs.digitInputs[index - 1].focus();
       }
+    },
+
+    /**
+     * Обрабатывает вставку кода в поле
+     * @param {Event} event - событие вставки
+     */
+    handlePaste(event) {
+      // Получаем данные из буфера обмена
+      const pasteData = event.clipboardData.getData('text');
+      
+      // Проверяем, является ли вставленный текст 6-значным числом
+      if (/^\d{6}$/.test(pasteData)) {
+        // Разбиваем строку на массив цифр и заполняем все поля
+        this.codeDigits = pasteData.split('');
+        
+        // После обновления данных проверяем, заполнены ли все поля и автоматически проверяем код
+        this.$nextTick(() => {
+          if (this.isCodeComplete) {
+            setTimeout(() => this.verifyCode(), 300);
+          }
+        });
+      } else if (/^\d+$/.test(pasteData)) {
+        // Если это число, но не 6-значное, берем только первые 6 цифр или дополняем пустыми строками
+        const digits = pasteData.slice(0, 6).split('');
+        while (digits.length < 6) {
+          digits.push('');
+        }
+        this.codeDigits = digits;
+      }
+      
+      // Предотвращаем стандартное поведение вставки
+      event.preventDefault();
     },
     
     /**
