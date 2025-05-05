@@ -3,6 +3,7 @@ from typing import List
 import uuid
 from fastapi.responses import FileResponse
 import os
+import shutil
 from pathlib import Path
 
 from ..database import get_db
@@ -16,6 +17,10 @@ router = APIRouter()
 # Используем стандартную директорию для временных файлов /tmp вместо создания новой директории
 TEMP_UPLOAD_DIR = Path("/tmp/zooracle_uploads")
 TEMP_UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Максимальный размер файлов в байтах
+MAX_IMAGE_SIZE = 4 * 1024 * 1024  # 4 MB
+MAX_VIDEO_SIZE = 1024 * 1024 * 1024  # 1 GB
 
 @router.post("/upload/")
 async def upload_media_file(
@@ -52,38 +57,64 @@ async def upload_media_file(
         # Временный путь для сохранения файла
         temp_file_path = TEMP_UPLOAD_DIR / f"{file_id}{file_extension}"
         
-        # Сохраняем файл во временную директорию
-        with open(temp_file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
-        
-        # Категория файла (изображение или видео)
-        file_category = "images" if file_extension in allowed_image_extensions else "videos"
-        
-        # Загружаем файл в MinIO
-        object_name = f"{file_category}/{file_id}{file_extension}"
-        await upload_file_to_minio(
-            file_path=str(temp_file_path),
-            object_name=object_name
-        )
-        
-        # Получаем размер файла
-        file_size = os.path.getsize(temp_file_path)
-        
-        # Удаляем временный файл
-        os.remove(temp_file_path)
-        
-        return {
-            "file_id": file_id,
-            "original_filename": file.filename,
-            "content_type": file.content_type,
-            "file_size": file_size,
-            "extension": file_extension
-        }
-    except Exception as e:
-        # Очистка при ошибке
-        if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+        # Сохраняем файл во временную директорию, используя потоковый метод
+        # чтобы избежать загрузки большого файла в память
+        try:
+            with open(temp_file_path, "wb") as buffer:
+                # Копируем данные из файла небольшими частями
+                shutil.copyfileobj(file.file, buffer)
+                
+            # Получаем размер файла
+            file_size = os.path.getsize(temp_file_path)
+            
+            # Определяем категорию файла
+            is_image = file_extension in allowed_image_extensions
+            
+            # Проверка на размер файла
+            if is_image and file_size > MAX_IMAGE_SIZE:
+                os.remove(temp_file_path)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Размер изображения превышает допустимое значение в {MAX_IMAGE_SIZE/(1024*1024)} МБ"
+                )
+            elif not is_image and file_size > MAX_VIDEO_SIZE:
+                os.remove(temp_file_path)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Размер видео превышает допустимое значение в {MAX_VIDEO_SIZE/(1024*1024*1024)} ГБ"
+                )
+            
+            # Категория файла (изображение или видео)
+            file_category = "images" if is_image else "videos"
+            
+            # Загружаем файл в MinIO
+            object_name = f"{file_category}/{file_id}{file_extension}"
+            await upload_file_to_minio(
+                file_path=str(temp_file_path),
+                object_name=object_name
+            )
+            
+            # Удаляем временный файл
             os.remove(temp_file_path)
+            
+            return {
+                "file_id": file_id,
+                "original_filename": file.filename,
+                "content_type": file.content_type,
+                "file_size": file_size,
+                "extension": file_extension
+            }
+        finally:
+            # Убедимся, что временный файл удаляется в любом случае
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+                
+    except HTTPException:
+        # Пробрасываем HTTP-исключения без изменений
+        raise
+    except Exception as e:
+        # Логируем ошибку для отладки
+        print(f"Ошибка при загрузке файла: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка при загрузке файла: {str(e)}")
 
 @router.get("/{file_id}")

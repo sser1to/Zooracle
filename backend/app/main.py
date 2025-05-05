@@ -6,6 +6,11 @@ from sqlalchemy import text  # type: ignore
 from typing import Optional
 import os
 import traceback
+# Импортируем необходимые классы для настройки лимитов
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+import sys
 
 from .database import engine, get_db, init_db, Base
 from .models import Base
@@ -14,12 +19,24 @@ from .routers import router, auth, animal_types, animals, habitats, media, tests
 # Создаем таблицы БД
 Base.metadata.create_all(bind=engine)
 
-# Инициализация приложения FastAPI
+# Инициализация приложения FastAPI с настройкой для больших файлов
 app = FastAPI(
     title="Zooracle API",
     description="API для приложения Zooracle",
     version="0.1.0"
 )
+
+# Класс middleware для увеличения лимита на размер файлов
+class LargeFileMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Увеличиваем лимит для всех запросов
+        # Увеличиваем лимит до 1GB (1024 * 1024 * 1024 байт)
+        setattr(request.app.state, "max_content_length", 1024 * 1024 * 1024)
+        response = await call_next(request)
+        return response
+
+# Добавляем middleware для больших файлов
+app.add_middleware(LargeFileMiddleware)
 
 # Настраиваем кроссдоменные запросы (CORS)
 # Получаем URL и порты из переменных окружения
