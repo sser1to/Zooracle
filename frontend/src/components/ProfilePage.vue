@@ -194,7 +194,6 @@
       {{ statusMessage }}
     </div>
   </div>
-  <div style="height: 15px;"></div>
 </template>
 
 <script>
