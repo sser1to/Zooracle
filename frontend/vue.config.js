@@ -22,22 +22,5 @@ module.exports = defineConfig({
         changeOrigin: true
       }
     }
-  },
-  // Настройки для сборки Electron
-  pluginOptions: {
-    electronBuilder: {
-      preload: 'preload.js',
-      // Настройки сборщика Electron
-      builderOptions: {
-        appId: 'com.zooracle.app',
-        productName: 'Zooracle',
-        directories: {
-          output: 'electron-dist'
-        },
-        win: {
-          icon: 'public/favicon.ico'
-        }
-      }
-    }
   }
 })
