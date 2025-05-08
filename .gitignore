@@ -8,6 +8,8 @@ electron-dist/
 *.env
 *.pfx
 *.pem
+*.key
+*.crt
 
 # docker
 docker-compose.dcproj

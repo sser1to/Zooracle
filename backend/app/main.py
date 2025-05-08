@@ -40,13 +40,39 @@ app.add_middleware(LargeFileMiddleware)
 
 # Настраиваем кроссдоменные запросы (CORS)
 # Получаем URL и порты из переменных окружения
-site_ip = os.environ.get("SITE_IP")
-frontend_url = os.environ.get("FRONTEND_URL")
+site_ip = os.environ.get("FRONTEND_URL", "").strip()
+frontend_url = os.environ.get("FRONTEND_URL", "").strip()
 
-origins = [
-    site_ip,
-    frontend_url,
-]
+# Формируем список разрешенных источников для CORS
+origins = []
+
+# Добавляем основные URL в список разрешенных источников
+if site_ip:
+    # Добавляем и HTTP, и HTTPS варианты, если явно не указан протокол
+    if not (site_ip.startswith("http://") or site_ip.startswith("https://")):
+        origins.extend([f"http://{site_ip}", f"https://{site_ip}"])
+    else:
+        origins.append(site_ip)
+
+if frontend_url:
+    # Добавляем и HTTP, и HTTPS варианты, если явно не указан протокол
+    if not (frontend_url.startswith("http://") or frontend_url.startswith("https://")):
+        origins.extend([f"http://{frontend_url}", f"https://{frontend_url}"])
+    else:
+        origins.append(frontend_url)
+
+# Добавляем локальные URL для разработки
+origins.extend([
+    "http://localhost",
+    "https://localhost",
+    "http://localhost:8080",
+    "https://localhost:8080",
+    "http://localhost:3000",
+    "https://localhost:3000",
+])
+
+# Удаляем дубликаты и None значения
+origins = list(filter(None, set(origins)))
 
 app.add_middleware(
     CORSMiddleware,

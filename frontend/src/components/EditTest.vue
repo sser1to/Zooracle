@@ -220,12 +220,12 @@ export default {
     
     // Константы и настройки
     const BACKEND_PORT = process.env.BACKEND_PORT;
-    const SITE_IP = process.env.SITE_IP;
+    const FRONTEND_URL = process.env.FRONTEND_URL;
     
     // Определяем базовый URL API в зависимости от окружения
     const apiBaseUrl = process.env.NODE_ENV === 'production' 
       ? '/api'
-      : `${SITE_IP}:${BACKEND_PORT}/api`;
+      : `${FRONTEND_URL}:${BACKEND_PORT}/api`;
     
     // Получение параметров из URL
     const router = useRouter();

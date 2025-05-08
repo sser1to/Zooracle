@@ -6,21 +6,25 @@ from pathlib import Path
 from minio import Minio
 from minio.error import S3Error
 
-# Получаем данные подключения к MinIO из переменных окружения
-MINIO_HOST = os.getenv("MINIO_HOST")
-MINIO_PORT = os.getenv("MINIO_PORT")
-MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER")
-MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD")
+# Получаем данные подключения к S3 из переменных окружения
+# Изменяем переменные для внешнего S3-хранилища вместо локального MinIO
+S3_INTERNAL_ENDPOINT = os.getenv("S3_INTERNAL_ENDPOINT")
+S3_EXTERNAL_ENDPOINT = os.getenv("S3_EXTERNAL_ENDPOINT")
+S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY")
+S3_SECRET_KEY = os.getenv("S3_SECRET_KEY")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+S3_USE_SSL = os.getenv("S3_USE_SSL").lower()
 
 # Константы для хранилища
-MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "zooracle")
+BUCKET_NAME = S3_BUCKET_NAME
 
-# Инициализация клиента MinIO
+# Инициализация клиента S3
+# Используем внутренний эндпоинт для доступа из контейнеров
 minio_client = Minio(
-    f"{MINIO_HOST}:{MINIO_PORT}",
-    access_key=MINIO_ROOT_USER,
-    secret_key=MINIO_ROOT_PASSWORD,
-    secure=False  # Установите True для HTTPS
+    S3_INTERNAL_ENDPOINT,
+    access_key=S3_ACCESS_KEY,
+    secret_key=S3_SECRET_KEY,
+    secure=S3_USE_SSL  # Используем SSL для безопасного соединения
 )
 
 def ensure_bucket_exists(bucket_name: str):
@@ -35,13 +39,19 @@ def ensure_bucket_exists(bucket_name: str):
     """
     try:
         if not minio_client.bucket_exists(bucket_name):
+            # Попытка создать бакет (может потребоваться соответствующее разрешение)
             minio_client.make_bucket(bucket_name)
+            print(f"Создан новый бакет: {bucket_name}")
     except S3Error as e:
-        raise Exception(f"Ошибка при создании бакета: {e}")
+        # Если бакет уже существует и создан другим пользователем, это нормально
+        if "BucketAlreadyOwnedByYou" in str(e) or "BucketAlreadyExists" in str(e):
+            print(f"Бакет {bucket_name} уже существует и доступен")
+            return
+        raise Exception(f"Ошибка при создании/проверке бакета: {e}")
 
 def upload_file(bucket_name: str, file_obj, file_name: str, content_type: str):
     """
-    Загрузить файл в MinIO
+    Загрузить файл в S3-хранилище
     
     Args:
         bucket_name (str): Имя бакета
@@ -60,7 +70,7 @@ def upload_file(bucket_name: str, file_obj, file_name: str, content_type: str):
         file_data = file_obj.read()
         file_size = len(file_data)
         
-        # Загрузить файл в MinIO
+        # Загрузить файл в S3
         minio_client.put_object(
             bucket_name=bucket_name,
             object_name=file_name,
@@ -69,18 +79,24 @@ def upload_file(bucket_name: str, file_obj, file_name: str, content_type: str):
             content_type=content_type
         )
         
+        # Формируем публичный URL для доступа к файлу
+        # Используем внешний эндпоинт для публичных ссылок
+        # Примечание: может потребоваться настройка CORS на S3 для доступа к файлам
+        public_url = f"https://{S3_EXTERNAL_ENDPOINT}/{bucket_name}/{file_name}"
+        
         return {
             "bucket_name": bucket_name,
             "file_name": file_name,
             "size": file_size,
-            "content_type": content_type
+            "content_type": content_type,
+            "url": public_url
         }
     except S3Error as e:
-        raise Exception(f"Ошибка при загрузке файла в MinIO: {e}")
+        raise Exception(f"Ошибка при загрузке файла в S3: {e}")
 
 def get_file(bucket_name: str, file_name: str):
     """
-    Получить файл из MinIO
+    Получить файл из S3-хранилища
     
     Args:
         bucket_name (str): Имя бакета
@@ -96,11 +112,11 @@ def get_file(bucket_name: str, file_name: str):
         response = minio_client.get_object(bucket_name, file_name)
         return response.data
     except S3Error as e:
-        raise Exception(f"Ошибка при получении файла из MinIO: {e}")
+        raise Exception(f"Ошибка при получении файла из S3: {e}")
 
 def delete_file(bucket_name: str, file_name: str):
     """
-    Удалить файл из MinIO
+    Удалить файл из S3-хранилища
     
     Args:
         bucket_name (str): Имя бакета
@@ -134,18 +150,18 @@ def delete_file(bucket_name: str, file_name: str):
         return True
     except S3Error as e:
         print(f"Ошибка S3 при удалении файла {file_name}: {str(e)}")
-        raise Exception(f"Ошибка при удалении файла из MinIO: {e}")
+        raise Exception(f"Ошибка при удалении файла из S3: {e}")
     except Exception as e:
         print(f"Непредвиденная ошибка при удалении файла {file_name}: {str(e)}")
         raise Exception(f"Непредвиденная ошибка при удалении файла: {str(e)}")
 
-async def delete_files_by_ids(file_ids: list, bucket_name: str = MINIO_BUCKET_NAME) -> dict:
+async def delete_files_by_ids(file_ids: list, bucket_name: str = BUCKET_NAME) -> dict:
     """
-    Удаляет группу файлов из MinIO по их идентификаторам или полным путям
+    Удаляет группу файлов из S3-хранилища по их идентификаторам или полным путям
     
     Args:
         file_ids (list): Список идентификаторов файлов или полных путей для удаления
-        bucket_name (str, optional): Имя бакета. По умолчанию используется MINIO_BUCKET_NAME.
+        bucket_name (str, optional): Имя бакета. По умолчанию используется BUCKET_NAME.
         
     Returns:
         dict: Отчет о результатах удаления (количество успешных/неудачных удалений)
@@ -190,7 +206,7 @@ async def delete_files_by_ids(file_ids: list, bucket_name: str = MINIO_BUCKET_NA
             continue
             
         try:
-            # Проверяем существование объекта в MinIO
+            # Проверяем существование объекта в S3
             object_name = file_id  # Может быть как просто ID, так и полный путь (category/id.ext)
             
             try:
@@ -236,14 +252,14 @@ async def delete_files_by_ids(file_ids: list, bucket_name: str = MINIO_BUCKET_NA
     print(f"Результат удаления файлов: {result}")
     return result
 
-async def upload_file_to_minio(file_path: str, object_name: str, bucket_name: str = MINIO_BUCKET_NAME) -> bool:
+async def upload_file_to_minio(file_path: str, object_name: str, bucket_name: str = BUCKET_NAME) -> bool:
     """
-    Загружает файл в хранилище MinIO с локальной файловой системы
+    Загружает файл в S3-хранилище с локальной файловой системы
     
     Args:
         file_path (str): Путь к локальному файлу
         object_name (str): Имя объекта в хранилище (например, 'images/file.jpg')
-        bucket_name (str, optional): Имя бакета. По умолчанию используется MINIO_BUCKET_NAME.
+        bucket_name (str, optional): Имя бакета. По умолчанию используется BUCKET_NAME.
         
     Returns:
         bool: True, если загрузка успешна
@@ -274,7 +290,7 @@ async def upload_file_to_minio(file_path: str, object_name: str, bucket_name: st
         
         content_type = content_types.get(ext, content_type)
         
-        # Загружаем файл в MinIO
+        # Загружаем файл в S3
         minio_client.fput_object(
             bucket_name=bucket_name,
             object_name=object_name,
@@ -284,17 +300,17 @@ async def upload_file_to_minio(file_path: str, object_name: str, bucket_name: st
         
         return True
     except S3Error as e:
-        raise Exception(f"Ошибка при загрузке файла в MinIO: {e}")
+        raise Exception(f"Ошибка при загрузке файла в S3: {e}")
     except Exception as e:
         raise Exception(f"Ошибка при загрузке файла: {str(e)}")
 
-async def get_file_from_minio(object_name: str, bucket_name: str = MINIO_BUCKET_NAME) -> str:
+async def get_file_from_minio(object_name: str, bucket_name: str = BUCKET_NAME) -> str:
     """
-    Получает файл из хранилища MinIO и сохраняет во временный файл
+    Получает файл из S3-хранилища и сохраняет во временный файл
     
     Args:
         object_name (str): Имя объекта в хранилище
-        bucket_name (str, optional): Имя бакета. По умолчанию используется MINIO_BUCKET_NAME.
+        bucket_name (str, optional): Имя бакета. По умолчанию используется BUCKET_NAME.
         
     Returns:
         str: Путь к временному файлу
@@ -309,7 +325,7 @@ async def get_file_from_minio(object_name: str, bucket_name: str = MINIO_BUCKET_
         temp_file_path = temp_file.name
         temp_file.close()
         
-        # Скачиваем файл из MinIO
+        # Скачиваем файл из S3
         minio_client.fget_object(
             bucket_name=bucket_name,
             object_name=object_name,
@@ -322,7 +338,7 @@ async def get_file_from_minio(object_name: str, bucket_name: str = MINIO_BUCKET_
         if "code: NoSuchKey" in str(e):
             return None
         # Для других ошибок вызываем исключение
-        raise Exception(f"Ошибка при получении файла из MinIO: {e}")
+        raise Exception(f"Ошибка при получении файла из S3: {e}")
     except Exception as e:
         # Удаляем временный файл в случае ошибки
         if 'temp_file_path' in locals() and os.path.exists(temp_file_path):

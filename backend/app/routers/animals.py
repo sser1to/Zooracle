@@ -206,7 +206,8 @@ async def delete_animal(
     2. Все вопросы теста
     3. Все связи вопросов с вариантами ответов
     4. Все варианты ответов для вопросов
-    5. Все связанные медиафайлы (изображения, видео)
+    5. Все результаты прохождения теста пользователями
+    6. Все связанные медиафайлы (изображения, видео)
     
     Args:
         animal_id: ID животного
@@ -229,10 +230,17 @@ async def delete_animal(
         if db_animal.test_id:
             try:
                 # Импортируем необходимые модели здесь, чтобы избежать циклических импортов
-                from ..models import Test, TestQuestion, Question, QuestionAnswer, AnswerOption
+                from ..models import Test, TestQuestion, Question, QuestionAnswer, AnswerOption, TestScore
                 
                 test_id = db_animal.test_id
                 print(f"Обнаружен связанный тест с ID: {test_id}. Начинаем процесс каскадного удаления.")
+                
+                # Удаление результатов теста (test_scores)
+                test_scores = db.query(TestScore).filter(TestScore.test_id == test_id).all()
+                scores_count = len(test_scores)
+                for score in test_scores:
+                    db.delete(score)
+                print(f"Удалено {scores_count} результатов теста с ID {test_id}")
                 
                 # Получаем все вопросы теста через связь TestQuestion
                 test_questions = db.query(TestQuestion).filter(TestQuestion.test_id == test_id).all()

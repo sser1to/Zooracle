@@ -1,17 +1,7 @@
 import axios from 'axios';
 import AuthService from './auth';
 
-/**
- * Определение базового URL для API в зависимости от окружения
- * В Docker-окружении используем относительные пути, которые обрабатывает Nginx
- * В режиме разработки обращаемся напрямую к бэкенду
- */
-const BACKEND_PORT = process.env.FRONTEND_PORT;
-const SITE_IP = process.env.SITE_IP;
-
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? '/api' // В продакшне используем относительные URL через nginx
-  : `${SITE_IP}:${BACKEND_PORT}/api`; // Для локальной разработки
+const API_URL = '/api';
 
 /**
  * Создаем настроенный экземпляр axios с базовым URL и заголовками

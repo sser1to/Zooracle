@@ -18,7 +18,7 @@
       <div class="delete-animal-container">
         <button 
           type="button" 
-          @click="showDeleteConfirmation = true" 
+          @click="confirmDelete" 
           class="delete-animal-button"
         >
           Удалить вид
@@ -339,32 +339,6 @@
         </div>
       </form>
     </div>
-
-    <!-- Модальное окно подтверждения удаления -->
-    <div v-if="showDeleteConfirmation" class="confirmation-modal" @click.self="showDeleteConfirmation = false">
-      <div class="confirmation-content">
-        <h3>Удаление вида животного</h3>
-        <p>Вы действительно хотите удалить вид "{{ animalData.name }}"?</p>
-        <p class="warning-text">Это действие нельзя отменить!</p>
-        <div class="confirmation-buttons">
-          <button 
-            type="button" 
-            @click="showDeleteConfirmation = false" 
-            class="cancel-delete-button"
-          >
-            Отмена
-          </button>
-          <button 
-            type="button" 
-            @click="deleteAnimal" 
-            class="confirm-delete-button"
-            :disabled="isDeleting"
-          >
-            {{ isDeleting ? 'Удаление...' : 'Удалить' }}
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -390,12 +364,12 @@ export default {
   setup(props) {
     // Константы и настройки
     const BACKEND_PORT = process.env.BACKEND_PORT;
-    const SITE_IP = process.env.SITE_IP;
+    const FRONTEND_URL = process.env.FRONTEND_URL;
     
     // Определяем базовый URL API в зависимости от окружения
     const apiBase = process.env.NODE_ENV === 'production' 
       ? '/api'
-      : `${SITE_IP}:${BACKEND_PORT}/api`;
+      : `${FRONTEND_URL}:${BACKEND_PORT}/api`;
     const router = useRouter();
     
     // Константа для максимального количества дополнительных изображений
@@ -420,7 +394,6 @@ export default {
     const previewMediaUrl = ref('');
     
     // Переменные для управления удалением
-    const showDeleteConfirmation = ref(false);
     const isDeleting = ref(false);
     
     // Данные о существующем животном
@@ -1158,7 +1131,23 @@ export default {
       }
     };
     
-    // Удаляет животное с сервера
+    /**
+     * Показывает стандартное окно подтверждения браузера для удаления животного
+     */
+    const confirmDelete = () => {
+      // Используем стандартное браузерное окно подтверждения
+      const isConfirmed = window.confirm(`Вы действительно хотите удалить вид "${animalData.name}"?\n\nЭто действие нельзя отменить!`);
+      
+      // Если пользователь подтвердил действие
+      if (isConfirmed) {
+        deleteAnimal();
+      }
+    };
+    
+    /**
+     * Удаляет животное с сервера
+     * @async
+     */
     const deleteAnimal = async () => {
       try {
         isDeleting.value = true;
@@ -1222,9 +1211,6 @@ export default {
         // Отправляем запрос на удаление животного
         await axios.delete(`${apiBase}/animals/${animalId.value}`);
         
-        // Закрываем модальное окно
-        showDeleteConfirmation.value = false;
-        
         // Перенаправляем на главную с параметром для обновления каталога
         router.push({ path: '/', query: { refreshCatalog: 'true' } });
       } catch (err) {
@@ -1242,9 +1228,6 @@ export default {
         } else {
           formError.value = err.message || 'Произошла ошибка при удалении данных';
         }
-        
-        // Закрываем модальное окно подтверждения
-        showDeleteConfirmation.value = false;
       } finally {
         isDeleting.value = false;
       }
@@ -1333,9 +1316,9 @@ export default {
       isCheckingName,
       originalName,
       // Переменные и методы для удаления
-      showDeleteConfirmation,
       isDeleting,
       deleteAnimal,
+      confirmDelete,
       // Просмотр медиафайлов
       showVideoPreview,
       showImagePreview,
@@ -2056,84 +2039,6 @@ export default {
 
 .delete-animal-button:hover {
   background-color: #d32f2f;
-}
-
-/* Стили для модального окна подтверждения */
-.confirmation-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1100;
-}
-
-.confirmation-content {
-  background-color: white;
-  border-radius: 8px;
-  padding: 30px;
-  width: 400px;
-  max-width: 90%;
-  text-align: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-}
-
-.confirmation-content h3 {
-  margin-top: 0;
-  color: #333;
-  font-size: 20px;
-  font-weight: 500;
-  margin-bottom: 15px;
-}
-
-.warning-text {
-  color: #ff5252;
-  font-weight: bold;
-  margin: 20px 0;
-}
-
-.confirmation-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin-top: 20px;
-}
-
-.cancel-delete-button,
-.confirm-delete-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.cancel-delete-button {
-  background-color: #f0f0f0;
-  color: #333;
-}
-
-.cancel-delete-button:hover {
-  background-color: #e0e0e0;
-}
-
-.confirm-delete-button {
-  background-color: #ff5252;
-  color: white;
-}
-
-.confirm-delete-button:hover {
-  background-color: #d32f2f;
-}
-
-.confirm-delete-button:disabled {
-  background-color: #ffb4b4;
-  cursor: not-allowed;
 }
 
 /* Стиль для неактивной кнопки загрузки файлов */

@@ -245,12 +245,12 @@ class TestScoreBase(BaseModel):
     Базовая схема для результатов теста
     
     Attributes:
-        test_id: ID теста
+        test_id: ID теста (может быть None)
         user_id: ID пользователя
         score: Результат теста в формате "X/Y" (правильных ответов из общего числа вопросов)
         date: Дата прохождения теста
     """
-    test_id: int
+    test_id: Optional[int] = None
     user_id: int
     score: str
     date: datetime

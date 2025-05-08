@@ -1,16 +1,6 @@
 import axios from 'axios';
 
-/**
- * Настройка базовых URL для API в зависимости от окружения
- * В Docker-окружении используем относительные пути через Nginx
- * В режиме разработки обращаемся напрямую к бэкенду
- */
-const BACKEND_PORT = process.env.FRONTEND_PORT;
-const SITE_IP = process.env.SITE_IP;
-
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? '/api' // Относительный путь в продакшне (обрабатывается Nginx)
-  : `${SITE_IP}:${BACKEND_PORT}/api`; // Для локальной разработки
+const API_URL = '/api';
 
 /**
  * Перехватчик для подробного логирования ошибок
