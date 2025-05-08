@@ -219,7 +219,7 @@
 <script>
 import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue';
 import axios from 'axios';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 /**
  * Компонент каталога животных
@@ -246,6 +246,7 @@ export default {
       : `${SITE_IP}:${BACKEND_PORT}/api`;
     const isAdmin = ref(false);  // Статус администратора
     const route = useRoute();
+    const router = useRouter();  // Добавляем router для отслеживания маршрута
     let refreshInterval = null;
     let authListener = null; // Слушатель событий авторизации
     
@@ -428,8 +429,13 @@ export default {
      */
     const loadFavorites = async () => {
       try {
+        // Очищаем массив избранного перед каждой загрузкой
+        favorites.value = [];
+        
         const response = await axios.get(`${apiBase}/animals/favorites/`);
         favorites.value = response.data.map(animal => animal.id);
+        
+        console.log('Избранное успешно загружено в каталоге:', favorites.value);
       } catch (err) {
         console.error('Ошибка при загрузке избранных животных:', err);
         // Не показываем ошибку пользователю, т.к. это не критичная информация
@@ -763,9 +769,23 @@ export default {
       
       // Настраиваем автоматическое обновление
       setupRefresh();
-
+      
       // Добавляем обработчик клика для закрытия выпадающих списков
       document.addEventListener('click', closeDropdownOnClickOutside);
+    });
+    
+    // Добавляем хук для отслеживания обновления роутера
+    // Это гарантирует, что данные будут всегда обновляться при входе на страницу
+    router.beforeResolve((to, from, next) => {
+      // Если переходим на страницу каталога
+      if (to.name === 'home') {
+        console.log('Обновление данных при входе на страницу каталога');
+        // Загружаем актуальные данные
+        loadFavorites();
+        // Если необходимо, можно также обновить весь список животных
+        loadAnimals();
+      }
+      next();
     });
     
     // Очистка при размонтировании компонента
@@ -780,7 +800,7 @@ export default {
         window.removeEventListener('storage', authListener);
         window.removeEventListener('localAuthChange', () => {});
       }
-
+      
       // Удаляем обработчик клика для закрытия выпадающих списков
       document.removeEventListener('click', closeDropdownOnClickOutside);
     });

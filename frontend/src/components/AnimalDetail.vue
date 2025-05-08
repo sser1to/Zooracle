@@ -237,8 +237,13 @@ export default {
      */
     const loadFavorites = async () => {
       try {
+        // Очищаем массив избранного перед каждой загрузкой
+        favorites.value = [];
+        
         const response = await axios.get(`${apiBase}/animals/favorites/`);
         favorites.value = response.data.map(animal => animal.id);
+        
+        console.log('Избранное успешно загружено в AnimalDetail:', favorites.value);
       } catch (err) {
         console.error('Ошибка при загрузке избранных животных:', err);
         // Не показываем ошибку пользователю, т.к. это не критичная информация
@@ -447,6 +452,7 @@ export default {
       (newId, oldId) => {
         if (newId !== oldId) {
           loadAnimalData();
+          loadFavorites(); // Перезагружаем избранное при каждом изменении ID
         }
       }
     );
@@ -470,6 +476,18 @@ export default {
       
       // Загружаем данные о животном
       loadAnimalData();
+    });
+    
+    // Добавляем хук для отслеживания обновления роутера
+    // Это гарантирует, что данные будут всегда обновляться при входе на страницу
+    router.beforeResolve((to, from, next) => {
+      // Если переходим на эту же страницу деталей животного
+      if (to.name === 'animal-detail') {
+        console.log('Обновление данных о животном при входе на страницу детальной информации');
+        // Загружаем актуальные данные
+        loadFavorites();
+      }
+      next();
     });
     
     return {
