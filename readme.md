@@ -7,6 +7,9 @@
 - Прохождение тестов на знание животных
 - Личный кабинет (изменение личной информации, просмотр статистики)
 
+<img src="https://github.com/user-attachments/assets/22bae035-a557-4b6a-89cc-77b1ad90278b" alt="изображение">
+<p><em>Главная страница (каталог)</em></p>
+
 **Стек:**
 - Frontend: **Vue.js**
 - Backend: **Python + FastAPI**
