@@ -1,7 +1,10 @@
 <template>
   <div class="catalog-container">
     <div class="catalog-header">
-      <h1>Каталог редких видов</h1>
+      <div class="header-title">
+        <img src="@/assets/logo.png" alt="Логотип" class="header-logo" />
+        <h1>Каталог редких видов</h1>
+      </div>
       
       <div class="header-actions">
         <!-- Кнопка добавления нового вида для десктопа (только для администраторов) -->
@@ -856,6 +859,18 @@ export default {
   margin-bottom: 20px;
 }
 
+.header-title {
+  display: flex;
+  align-items: center;
+}
+
+.header-logo {
+  /* Размер логотипа */
+  height: 40px;
+  width: auto;
+  margin-right: 15px;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -1254,6 +1269,11 @@ h1 {
 
 /* Медиа-запросы для адаптивности */
 @media (max-width: 768px) {
+  .header-logo {
+    /* Скрываем логотип на мобильных устройствах */
+    display: none;
+  }
+  
   .dropdown-filters {
     flex-direction: column;
   }
