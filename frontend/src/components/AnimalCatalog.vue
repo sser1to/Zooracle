@@ -4,8 +4,8 @@
       <h1>Каталог редких видов</h1>
       
       <div class="header-actions">
-        <!-- Кнопка добавления нового вида (только для администраторов) -->
-        <router-link v-if="isAdmin" to="/add-animal" class="add-animal-button">
+        <!-- Кнопка добавления нового вида для десктопа (только для администраторов) -->
+        <router-link v-if="isAdmin" to="/add-animal" class="add-animal-button desktop-add-button">
           <span class="plus-icon">+</span> Добавить
         </router-link>
 
@@ -16,6 +16,13 @@
           </svg>
         </router-link>
       </div>
+    </div>
+    
+    <!-- Кнопка добавления для мобильной версии (только для администраторов) -->
+    <div class="mobile-add-button-container" v-if="isAdmin">
+      <router-link to="/add-animal" class="add-animal-button mobile-add-button">
+        <span class="plus-icon">+</span> Добавить
+      </router-link>
     </div>
     
     <!-- Панель фильтров и поиска -->
@@ -1228,6 +1235,23 @@ h1 {
   font-size: 14px;
 }
 
+/* Стили для мобильной и десктопной кнопки Добавить */
+.mobile-add-button-container {
+  display: none;
+  text-align: right;
+  margin-bottom: 20px;
+  padding-right: 10px;
+  width: 100%;
+}
+
+.mobile-add-button {
+  display: inline-flex;
+  justify-content: center;
+  width: auto; /* Ширина по содержимому */
+  max-width: 200px; /* Ограничиваем максимальную ширину кнопки */
+  margin: 0; /* Убираем auto-центрирование */
+}
+
 /* Медиа-запросы для адаптивности */
 @media (max-width: 768px) {
   .dropdown-filters {
@@ -1257,6 +1281,16 @@ h1 {
   /* Разрешаем прокрутку всей страницы */
   body {
     overflow: auto !important;
+  }
+  
+  /* Скрываем десктопную кнопку в мобильной версии */
+  .desktop-add-button {
+    display: none;
+  }
+  
+  /* Показываем мобильную кнопку в мобильной версии */
+  .mobile-add-button-container {
+    display: block;
   }
 }
 

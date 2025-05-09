@@ -1,20 +1,20 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status # type: ignore
-from fastapi.security import OAuth2PasswordBearer # type: ignore
-from jose import JWTError, jwt # type: ignore
-from passlib.context import CryptContext # type: ignore
-from sqlalchemy.orm import Session # type: ignore
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User
 from ..schemas import TokenData
 
-# Секретный ключ для JWT (в продакшене нужно хранить в переменных окружения)
+# Секретный ключ для JWT
 SECRET_KEY = "your-secret-key-change-this-in-production"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 10080 # 7 дней
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
