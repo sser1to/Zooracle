@@ -11,11 +11,11 @@
 <p><em>Главная страница (каталог)</em></p>
 
 **Стек:**
-- Frontend: **Vue.js**
-- Backend: **Python + FastAPI**
-- Database: **PostgreSQL**
-- File Storage: **S3 Cloud Storage**
-- Containerization: **Docker**
+- Фронтенд: **Vue.js**
+- Бэкенд: **Python + FastAPI**
+- База данных: **PostgreSQL**
+- Файловое хранилище: **S3 Cloud Storage**
+- Конейнеризация: **Docker**
 
 ## Начало работы
 1. Клонируем репозиторий
