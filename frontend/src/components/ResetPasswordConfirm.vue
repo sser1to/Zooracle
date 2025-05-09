@@ -106,8 +106,8 @@ export default {
     const token = ref('');
 
     // Новые состояния для проверки токена
-    const isTokenValid = ref(true); // Предполагаем, что токен действителен изначально
-    const isTokenChecking = ref(true); // Флаг проверки токена
+    const isTokenValid = ref(true);
+    const isTokenChecking = ref(true);
     const tokenErrorMessage = ref('Недействительная ссылка для сброса пароля');
     
     // Данные формы
@@ -189,15 +189,12 @@ export default {
       
       // Получаем токен из разных возможных источников
       if (props.token) {
-        // 1. Из пропсов (если передан напрямую)
         token.value = props.token;
         console.log('Токен получен из пропсов:', token.value);
       } else if (route.query && route.query.token) {
-        // 2. Из параметров URL (стандартный способ)
         token.value = route.query.token;
         console.log('Токен получен из URL параметров:', token.value);
       } else {
-        // 3. Попытка извлечь токен из последнего сегмента URL (альтернативный формат)
         const urlSegments = window.location.pathname.split('/');
         const lastSegment = urlSegments[urlSegments.length - 1];
         if (lastSegment && lastSegment !== 'confirm') {
@@ -396,9 +393,9 @@ export default {
   margin: 0 auto;
   padding: 20px;
   text-align: center;
-  background-color: #fff; /* Явно указываем белый фон контейнера */
+  background-color: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Добавляем тень для видимости на белом фоне */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 /* Добавляем базовые стили для body на случай, если глобальные стили не загружаются */

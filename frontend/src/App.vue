@@ -51,8 +51,6 @@ export default {
       // Имитируем прогресс загрузки
       this.loadingTimer = setInterval(() => {
         if (this.loadingProgress < 90) {
-          // Постепенно увеличиваем прогресс, но не доходим до 100%
-          // Последние 10% будут добавлены при завершении загрузки
           this.loadingProgress += (90 - this.loadingProgress) / 10;
         }
       }, 100);
@@ -90,11 +88,10 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-  margin-top: 20px; /* Уменьшаем верхний отступ с 60px до 20px */
-  /* Добавляем масштабирование для всего приложения */
+  margin-top: 20px;
   transform: scale(1.15);
   transform-origin: top center;
-  width: 86.95%; /* 100/1.5 чтобы компенсировать увеличение масштаба */
+  width: 86.95%;
   margin-left: auto;
   margin-right: auto;
 }
@@ -132,7 +129,6 @@ body {
   margin: 0;
   padding: 0;
   background-color: #f5f5f5;
-  /* Добавляем стили для обработки масштабированного контента */
   overflow-x: hidden;
 }
 

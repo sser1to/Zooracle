@@ -1,12 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException  # type: ignore
-from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session  # type: ignore
-from sqlalchemy import text  # type: ignore
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import Optional
 import os
 import traceback
-# Импортируем необходимые классы для настройки лимитов
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -29,8 +28,6 @@ app = FastAPI(
 # Класс middleware для увеличения лимита на размер файлов
 class LargeFileMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Увеличиваем лимит для всех запросов
-        # Увеличиваем лимит до 1GB (1024 * 1024 * 1024 байт)
         setattr(request.app.state, "max_content_length", 1024 * 1024 * 1024)
         response = await call_next(request)
         return response
@@ -39,7 +36,6 @@ class LargeFileMiddleware(BaseHTTPMiddleware):
 app.add_middleware(LargeFileMiddleware)
 
 # Настраиваем кроссдоменные запросы (CORS)
-# Получаем URL и порты из переменных окружения
 site_ip = os.environ.get("FRONTEND_URL", "").strip()
 frontend_url = os.environ.get("FRONTEND_URL", "").strip()
 
@@ -48,14 +44,12 @@ origins = []
 
 # Добавляем основные URL в список разрешенных источников
 if site_ip:
-    # Добавляем и HTTP, и HTTPS варианты, если явно не указан протокол
     if not (site_ip.startswith("http://") or site_ip.startswith("https://")):
         origins.extend([f"http://{site_ip}", f"https://{site_ip}"])
     else:
         origins.append(site_ip)
 
 if frontend_url:
-    # Добавляем и HTTP, и HTTPS варианты, если явно не указан протокол
     if not (frontend_url.startswith("http://") or frontend_url.startswith("https://")):
         origins.extend([f"http://{frontend_url}", f"https://{frontend_url}"])
     else:
@@ -71,31 +65,25 @@ origins.extend([
     "https://localhost:3000",
 ])
 
-# Удаляем дубликаты и None значения
 origins = list(filter(None, set(origins)))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Разрешаем запросы с указанных источников
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Разрешаем любые HTTP-методы
-    allow_headers=["*"],  # Разрешаем любые HTTP-заголовки
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Инициализируем структуру базы данных при запуске приложения
 try:
-    # Вызываем функцию инициализации БД
     init_db()
 except Exception as e:
     print(f"КРИТИЧЕСКАЯ ОШИБКА: Не удалось инициализировать базу данных: {str(e)}")
     print("Детали ошибки:")
     traceback.print_exc()
-    # В продакшн окружении можно завершить приложение здесь
-    # import sys
-    # sys.exit(1)
 
 # Подключаем все API-маршруты через единый роутер
-# Это объединяет все подроутеры из __init__.py
 app.include_router(router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(animal_types.router, prefix="/api/animal-types")
@@ -104,7 +92,7 @@ app.include_router(habitats.router, prefix="/api/habitats")
 app.include_router(media.router, prefix="/api/media")
 app.include_router(tests.router, prefix="/api/tests")
 app.include_router(question.router, prefix="/api/questions")
-app.include_router(test_scores.router, prefix="/api/test-scores")  # Добавляем маршрутизатор для результатов тестов
+app.include_router(test_scores.router, prefix="/api/test-scores")
 
 @app.get("/")
 async def root():
@@ -139,7 +127,6 @@ def db_status(db: Session = Depends(get_db)):
     """
     try:
         # Проверяем соединение с БД, выполнив простой запрос
-        # Используем функцию text() для явного обозначения SQL запроса
         db.execute(text("SELECT 1"))
         return {"status": "success", "message": "Database connection is successful"}
     except Exception as e:

@@ -162,11 +162,11 @@ export default {
     const loading = ref(true);
     const error = ref('');
     const currentImageId = ref(null);
-    const imageLoading = ref(false); // Состояние загрузки основного изображения
-    const thumbnailsLoaded = reactive({}); // Хранит состояние загрузки каждой миниатюры
-    const favorites = ref([]); // Массив ID животных в избранном
-    const isAdmin = ref(false); // Статус администратора пользователя
-    const isVideoPlaying = ref(false); // Состояние воспроизведения видео
+    const imageLoading = ref(false);
+    const thumbnailsLoaded = reactive({});
+    const favorites = ref([]);
+    const isAdmin = ref(false);
+    const isVideoPlaying = ref(false);
     
     const route = useRoute();
     const router = useRouter();
@@ -246,7 +246,6 @@ export default {
         console.log('Избранное успешно загружено в AnimalDetail:', favorites.value);
       } catch (err) {
         console.error('Ошибка при загрузке избранных животных:', err);
-        // Не показываем ошибку пользователю, т.к. это не критичная информация
       }
     };
     
@@ -261,7 +260,7 @@ export default {
       try {
         loading.value = true;
         error.value = '';
-        imageLoading.value = true; // Начинаем загрузку изображений
+        imageLoading.value = true;
         
         // Если ID не указан, просто показываем состояние загрузки
         if (!animalId) {
@@ -317,7 +316,7 @@ export default {
             thumbnailsLoaded[photo.photo_id] = true;
           };
           img.onerror = () => {
-            thumbnailsLoaded[photo.photo_id] = true; // Помечаем как загруженное даже при ошибке
+            thumbnailsLoaded[photo.photo_id] = true;
           };
         });
       }
@@ -330,7 +329,7 @@ export default {
      */
     const getImageUrl = (imageId) => {
       if (!imageId) {
-        return '/placeholder.jpg'; // Заглушка, если нет изображения
+        return '/placeholder.png'; // Заглушка, если нет изображения
       }
       return `${apiBase}/media/${imageId}`;
     };
@@ -367,7 +366,7 @@ export default {
      * @param {Event} e - Событие ошибки
      */
     const handleImageError = (e) => {
-      e.target.src = '/placeholder.jpg'; // Заменяем на заглушку
+      e.target.src = '/placeholder.png'; // Заменяем на заглушку
       
       // Скрываем индикатор загрузки
       if (e.target.classList.contains('main-image')) {
@@ -387,7 +386,7 @@ export default {
      */
     const setMainImage = (photoId) => {
       if (currentImageId.value !== photoId) {
-        imageLoading.value = true; // Показываем индикатор загрузки
+        imageLoading.value = true;
         currentImageId.value = photoId;
       }
     };
@@ -433,8 +432,7 @@ export default {
      */
     const goToTest = () => {
       if (animal.value && animal.value.test_id) {
-        // Очищаем предыдущие данные перед навигацией, используя force=true для принудительного обновления,
-        // даже если маршрут остаётся тем же самым
+        // Очищаем предыдущие данные перед навигацией, используя force=true для принудительного обновления
         router.push({
           name: 'take-test',
           params: { 
@@ -452,7 +450,7 @@ export default {
       (newId, oldId) => {
         if (newId !== oldId) {
           loadAnimalData();
-          loadFavorites(); // Перезагружаем избранное при каждом изменении ID
+          loadFavorites();
         }
       }
     );
@@ -479,7 +477,6 @@ export default {
     });
     
     // Добавляем хук для отслеживания обновления роутера
-    // Это гарантирует, что данные будут всегда обновляться при входе на страницу
     router.beforeResolve((to, from, next) => {
       // Если переходим на эту же страницу деталей животного
       if (to.name === 'animal-detail') {
@@ -650,8 +647,8 @@ export default {
   line-height: 1.5;
   color: #333;
   text-align: left;
-  white-space: pre-line; /* Сохраняем переносы строк из текста */
-  overflow-wrap: break-word; /* Разрешаем перенос длинных слов */
+  white-space: pre-line;
+  overflow-wrap: break-word;
 }
 
 /* Блок с видео */
@@ -674,8 +671,8 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain; /* Изменено с 'cover' на 'contain' для сохранения пропорций видео */
-  background-color: black; /* Добавлен черный фон для рамок */
+  object-fit: contain;
+  background-color: black;
 }
 
 .play-button {
@@ -702,8 +699,8 @@ export default {
 .main-image-container {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1; /* Квадратное соотношение как на макете */
-  border: 1px solid #8BC34A; /* Зеленая рамка как на макете */
+  aspect-ratio: 1 / 1;
+  border: 1px solid #8BC34A;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -766,7 +763,7 @@ export default {
 }
 
 .thumbnail-item.active {
-  border-color: #8BC34A; /* Зеленая рамка для активной миниатюры */
+  border-color: #8BC34A;
   border-width: 2px;
 }
 

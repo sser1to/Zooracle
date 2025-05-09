@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File # type: ignore
-from sqlalchemy.orm import Session # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy.orm import Session
 from typing import List
 import os
 

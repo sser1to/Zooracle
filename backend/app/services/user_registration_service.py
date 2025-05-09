@@ -6,10 +6,9 @@ from typing import Dict, Tuple, Optional
 logger = logging.getLogger("user_registration_service")
 
 # Структура для хранения временных данных пользователей
-# Ключ: email, значение: (данные пользователя, время создания)
 pending_users: Dict[str, Tuple[dict, float]] = {}
 
-# Время жизни данных пользователя (в секундах)
+# Время жизни данных пользователя
 PENDING_USER_TTL = 3600  # 1 час
 
 

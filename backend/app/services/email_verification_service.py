@@ -9,10 +9,9 @@ from typing import Dict, Optional, Tuple
 logger = logging.getLogger("email_verification_service")
 
 # Словарь для хранения кодов верификации
-# Структура: {email: (код, время_создания)}
 verification_codes: Dict[str, Tuple[str, float]] = {}
 
-# Время жизни кода верификации (в секундах)
+# Время жизни кода верификации
 VERIFICATION_CODE_TTL = 300  # 5 минут
 
 

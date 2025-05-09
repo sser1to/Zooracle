@@ -242,8 +242,8 @@ export default {
     // Реактивное состояние
     const animals = ref([]);
     const favorites = ref([]);
-    const animalTypes = ref([]);  // Классы животных
-    const habitats = ref([]);     // Ареалы обитания
+    const animalTypes = ref([]);
+    const habitats = ref([]);
     const loading = ref(true);
     const error = ref('');
     // Константы и настройки
@@ -254,11 +254,11 @@ export default {
     const apiBase = process.env.NODE_ENV === 'production' 
       ? '/api'
       : `${FRONTEND_URL}:${BACKEND_PORT}/api`;
-    const isAdmin = ref(false);  // Статус администратора
+    const isAdmin = ref(false);
     const route = useRoute();
-    const router = useRouter();  // Добавляем router для отслеживания маршрута
+    const router = useRouter();
     let refreshInterval = null;
-    let authListener = null; // Слушатель событий авторизации
+    let authListener = null;
     
     // Параметры фильтрации
     const searchQuery = ref('');
@@ -295,7 +295,7 @@ export default {
      */
     const getImageUrl = (imageId) => {
       if (!imageId) {
-        return '/placeholder.jpg'; // Заглушка, если нет изображения
+        return '/placeholder.png'; // Заглушка, если нет изображения
       }
       return `${apiBase}/media/${imageId}`;
     };
@@ -305,7 +305,7 @@ export default {
      * @param {Event} e - Событие ошибки
      */
     const handleImageError = (e) => {
-      e.target.src = '/placeholder.jpg'; // Заменяем на заглушку
+      e.target.src = '/placeholder.png'; // Заменяем на заглушку
     };
     
     /**
@@ -325,7 +325,7 @@ export default {
         // Формируем параметры запроса
         const params = {
           skip: 0,
-          limit: 10000, // Большой лимит для получения всех записей
+          limit: 10000,
           sort_by: sortField,
           sort_order: sortDirection,
           favorites_only: showFavorites.value
@@ -448,7 +448,6 @@ export default {
         console.log('Избранное успешно загружено в каталоге:', favorites.value);
       } catch (err) {
         console.error('Ошибка при загрузке избранных животных:', err);
-        // Не показываем ошибку пользователю, т.к. это не критичная информация
       }
     };
     
@@ -486,7 +485,7 @@ export default {
         clearTimeout(timeout);
         timeout = setTimeout(() => {
           loadAnimals();
-        }, 500); // Задержка 500 мс
+        }, 500);
       };
     })();
     
@@ -670,7 +669,7 @@ export default {
         if (!document.hidden) {
           loadAnimals();
         }
-      }, 60000); // Обновляем данные каждую минуту
+      }, 60000); // Каждую минуту
     };
     
     /**
@@ -680,7 +679,6 @@ export default {
     const setupAuthListener = () => {
       // Создаем слушателя события хранилища для отслеживания изменений токена
       authListener = (event) => {
-        // Проверяем, что изменился именно ключ 'user' в localStorage
         if (event.key === 'user') {
           // Если добавлен пользователь (вход в систему)
           if (event.newValue && !event.oldValue) {
@@ -692,7 +690,7 @@ export default {
           else if (!event.newValue && event.oldValue) {
             console.log('Пользователь вышел из системы, обновляем каталог');
             checkAdminStatus();
-            favorites.value = []; // Очищаем избранное
+            favorites.value = [];
             loadAnimals();
           }
           // Если изменены данные пользователя
@@ -719,7 +717,6 @@ export default {
     watch(
       () => route.query,
       (newQuery) => {
-        // Если есть параметр refreshCatalog, обновляем данные
         if (newQuery.refreshCatalog === 'true') {
           loadAnimals();
         }
@@ -758,7 +755,6 @@ export default {
         await Promise.all([
           loadFavorites().catch(err => {
             console.error('Ошибка при загрузке избранного:', err);
-            // Не останавливаем выполнение при ошибке с избранным
           }),
           loadAnimals()
         ]);
@@ -785,7 +781,6 @@ export default {
     });
     
     // Добавляем хук для отслеживания обновления роутера
-    // Это гарантирует, что данные будут всегда обновляться при входе на страницу
     router.beforeResolve((to, from, next) => {
       // Если переходим на страницу каталога
       if (to.name === 'home') {
@@ -927,12 +922,9 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   padding: 10px 20px;
-  /* Вместо фиксированной высоты и запрета прокрутки используем min-height */
   min-height: calc(100vh - 20px);
-  /* Разрешаем прокрутку контейнера */
   overflow-y: auto;
-  /* Добавляем отступ снизу для десктопной версии */
-  padding-bottom: 50px; /* Значительный отступ снизу для предотвращения обрезания карточек */
+  padding-bottom: 50px;
 }
 
 /* Стили для сетки животных без ограничения высоты */
@@ -944,7 +936,6 @@ export default {
   padding-top: 15px;
   padding-left: 10px;
   padding-bottom: 15px;
-  /* Добавляем отступ снизу для контейнера животных */
   margin-bottom: 30px;
 }
 
@@ -1262,15 +1253,14 @@ h1 {
 .mobile-add-button {
   display: inline-flex;
   justify-content: center;
-  width: auto; /* Ширина по содержимому */
-  max-width: 200px; /* Ограничиваем максимальную ширину кнопки */
-  margin: 0; /* Убираем auto-центрирование */
+  width: auto;
+  max-width: 200px;
+  margin: 0;
 }
 
 /* Медиа-запросы для адаптивности */
 @media (max-width: 768px) {
   .header-logo {
-    /* Скрываем логотип на мобильных устройствах */
     display: none;
   }
   

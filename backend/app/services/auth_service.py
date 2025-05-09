@@ -51,7 +51,6 @@ def get_password_hash(password):
         return hashed
         
     except Exception as e:
-        # Логируем ошибку, но не показываем детали в сообщении об ошибке
         print(f"Ошибка при хешировании пароля: {str(e)}")
         raise ValueError("Невозможно захешировать пароль. Проверьте формат и длину пароля.")
 

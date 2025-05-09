@@ -197,19 +197,18 @@ input {
   font-weight: 500;
 }
 
-/* Переопределяем ширину для кнопки регистрации, чтобы она соответствовала размеру формы */
+
 .register-btn {
-  width: 100%; /* Устанавливаем явную ширину на 100% от контейнера */
-  box-sizing: border-box; /* Учитываем границы и отступы в рамках ширины */
-  margin: 0 auto; /* Центрирование */
-  display: block; /* Делаем блочным для контроля ширины */
-  max-width: 100%; /* Ограничиваем максимальную ширину контейнером */
-  overflow: hidden; /* Предотвращаем выход за границы */
-  text-overflow: ellipsis; /* При необходимости обрезаем текст */
-  white-space: nowrap; /* Предотвращаем перенос текста */
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Дополнительно устанавливаем стили для всех кнопок в форме для единообразия */
 .btn {
   width: 100%;
   box-sizing: border-box;

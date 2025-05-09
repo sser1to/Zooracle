@@ -213,10 +213,8 @@ import { useRouter, useRoute } from 'vue-router';
 export default {
   name: 'EditTest',
   setup() {
-    // Константы для ограничений количества вопросов и вариантов ответов
-    const MAX_QUESTIONS = 10; // Максимальное количество вопросов в тесте
-    // eslint-disable-next-line
-    const MAX_OPTIONS = 6; // Максимальное количество вариантов ответа в вопросе
+    const MAX_QUESTIONS = 10;
+    const MAX_OPTIONS = 6;
     
     // Константы и настройки
     const BACKEND_PORT = process.env.BACKEND_PORT;
@@ -307,7 +305,7 @@ export default {
             
             // Загружаем данные существующего теста
             await loadTestData();
-            return; // Выходим из функции, так как loadTestData уже все настроит
+            return;
           }
         } catch (e) {
           console.error('Ошибка загрузки данных животного:', e);
@@ -321,7 +319,7 @@ export default {
       addQuestion();
       isLoadingTestName.value = false;
       loading.value = false;
-      dataLoaded.value = true; // Помечаем, что данные "загружены" (инициализированы)
+      dataLoaded.value = true;
     };
     
     /**
@@ -410,7 +408,7 @@ export default {
         };
         
         // Обрабатываем разные типы вопросов
-        if (question.question_type_id === 1) { // Текстовый ответ
+        if (question.question_type_id === 1) {
           // Для текстового ответа ищем правильный вариант
           if (question.answers && question.answers.length > 0) {
             const correctAnswer = question.answers.find(a => a.is_correct);
@@ -664,11 +662,11 @@ export default {
           
           if (q.question_type_id === 1) { // Текстовый ответ
             questionData.answers = [{
-              id: null, // Для нового ответа ID = null
+              id: null,
               name: q.textAnswer,
               is_correct: true
             }];
-          } else { // Варианты ответов
+          } else {
             questionData.answers = q.answerOptions.map(opt => ({
               id: opt.id,
               name: opt.name,
@@ -725,12 +723,10 @@ export default {
     
     /**
      * Предупреждение о несохраненных изменениях при уходе со страницы
-     * Функция отключена, чтобы не показывать предупреждение пользователю
      * @returns {undefined} Возвращает undefined для отмены стандартного предупреждения браузера
      */
     const unloadHandler = () => {
       // Отключаем предупреждение о несохраненных данных
-      // Если в будущем потребуется включить эту функциональность обратно, раскомментируйте код ниже
       /*
       if (unsavedChanges.value) {
         e.preventDefault();

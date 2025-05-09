@@ -6,7 +6,6 @@ from typing import List, Dict, Any, Optional
 from .. import models, schemas, database
 from ..routers.auth import get_current_user
 
-# Убираем префикс, чтобы избежать дублирования с main.py
 router = APIRouter(
     tags=["test scores"]
 )

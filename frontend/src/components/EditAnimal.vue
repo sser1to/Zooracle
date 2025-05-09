@@ -382,11 +382,11 @@ export default {
     const formError = ref('');
     const isSubmitting = ref(false);
     const loading = ref(true);
-    const showCoverRequiredError = ref(false); // Флаг для отображения ошибки обязательной обложки
-    const dataLoaded = ref(false); // Флаг, указывающий, что данные успешно загружены
-    const nameErrorMessage = ref(''); // Сообщение об ошибке для имени животного
-    const isCheckingName = ref(false); // Флаг проверки имени
-    const originalName = ref(''); // Оригинальное имя животного для сравнения
+    const showCoverRequiredError = ref(false);
+    const dataLoaded = ref(false);
+    const nameErrorMessage = ref('');
+    const isCheckingName = ref(false);
+    const originalName = ref('');
     
     // Переменные для предпросмотра медиафайлов
     const showVideoPreview = ref(false);
@@ -401,9 +401,9 @@ export default {
     const currentPreviewId = ref(null);
     const currentPreviewUrl = ref('');
     const currentVideoId = ref(null);
-    const existingImages = ref([]);  // Массив с существующими изображениями
-    const imagesToDelete = ref([]);  // ID изображений для удаления
-    const removeVideoFlag = ref(false);  // Флаг для удаления текущего видео
+    const existingImages = ref([]);
+    const imagesToDelete = ref([]);
+    const removeVideoFlag = ref(false);
     
     // Данные животного для редактирования
     const animalData = reactive({
@@ -411,7 +411,7 @@ export default {
       animal_type_id: '',
       habitat_id: '',
       description: '',
-      video_id: null // Добавляем поле для хранения ID видео
+      video_id: null
     });
     
     // Файлы и предпросмотры для новых загружаемых файлов
@@ -511,7 +511,6 @@ export default {
         return true;
       } catch (err) {
         console.error('Ошибка при проверке уникальности имени:', err);
-        // При ошибке лучше разрешить продолжение, но залогировать проблему
         return true;
       } finally {
         isCheckingName.value = false;
@@ -603,7 +602,7 @@ export default {
      */
     const getImageUrl = (imageId) => {
       if (!imageId) {
-        return '/placeholder.jpg'; // Заглушка, если нет изображения
+        return '/placeholder.png'; // Заглушка, если нет изображения
       }
       return `${apiBase}/media/${imageId}`;
     };
@@ -688,7 +687,7 @@ export default {
         
         loading.value = true;
         error.value = '';
-        dataLoaded.value = false; // Сбрасываем флаг загрузки данных
+        dataLoaded.value = false;
         
         // Получаем информацию о животном
         const animalResponse = await axios.get(`${apiBase}/animals/${animalId.value}`);
@@ -696,12 +695,12 @@ export default {
         
         // Заполняем форму данными животного
         animalData.name = animal.name;
-        originalName.value = animal.name; // Сохраняем оригинальное имя для проверки уникальности
+        originalName.value = animal.name;
         animalData.description = animal.description;
         animalData.animal_type_id = animal.animal_type_id;
         animalData.habitat_id = animal.habitat_id;
-        animalData.video_id = animal.video_id; // Загружаем ID видео
-        animalData.test_id = animal.test_id; // Загружаем ID теста
+        animalData.video_id = animal.video_id;
+        animalData.test_id = animal.test_id;
         
         console.log('Данные животного загружены, ID теста:', animal.test_id);
         
@@ -768,7 +767,7 @@ export default {
       } catch (err) {
         console.error('Ошибка при загрузке данных животного:', err);
         error.value = 'Не удалось загрузить данные животного.';
-        dataLoaded.value = false; // Сбрасываем флаг при ошибке
+        dataLoaded.value = false;
       } finally {
         loading.value = false;
       }
@@ -790,7 +789,7 @@ export default {
       const file = event.target.files[0];
       if (!file) return;
       
-      // Проверка на размер файла (4MB = 4 * 1024 * 1024 байт)
+      // Проверка на размер файла
       if (file.size > 4 * 1024 * 1024) {
         formError.value = 'Размер файла обложки не должен превышать 4 МБ';
         return;
@@ -799,7 +798,7 @@ export default {
       // Сохраняем файл и создаем предпросмотр
       selectedCover.value = file;
       previewCover.value = URL.createObjectURL(file);
-      showCoverRequiredError.value = false; // Сбрасываем ошибку после загрузки обложки
+      showCoverRequiredError.value = false;
     };
     
     /**
@@ -826,7 +825,7 @@ export default {
       
       // Обрабатываем каждый файл
       files.forEach(file => {
-        // Проверка на размер файла (4MB)
+        // Проверка на размер файла
         if (file.size > 4 * 1024 * 1024) {
           formError.value = `Размер файла "${file.name}" превышает 4 МБ`;
           return;
@@ -937,7 +936,7 @@ export default {
      */
     const handleImageError = (event) => {
       // Устанавливаем временное изображение-заглушку
-      event.target.src = '/placeholder.jpg'; 
+      event.target.src = '/placeholder.png'; 
       console.error('Ошибка загрузки изображения:', event);
     };
 
@@ -962,7 +961,6 @@ export default {
         return response.data.file_id;
       } catch (err) {
         console.error('Ошибка при загрузке файла:', err);
-        // Не генерируем исключение, а просто возвращаем null
         return null;
       }
     };
@@ -1029,7 +1027,6 @@ export default {
           description: animalData.description,
           animal_type_id: animalData.animal_type_id ? parseInt(animalData.animal_type_id, 10) : null,
           habitat_id: animalData.habitat_id ? parseInt(animalData.habitat_id, 10) : null,
-          // Используем null вместо undefined, если ID не был получен
           preview_id: previewId,
           video_id: videoId
         };
@@ -1315,11 +1312,9 @@ export default {
       nameErrorMessage,
       isCheckingName,
       originalName,
-      // Переменные и методы для удаления
       isDeleting,
       deleteAnimal,
       confirmDelete,
-      // Просмотр медиафайлов
       showVideoPreview,
       showImagePreview,
       previewMediaUrl,
@@ -1327,7 +1322,6 @@ export default {
       closeImagePreview,
       openVideoPreview,
       closeVideoPreview,
-      // Основные методы
       handleCoverUpload,
       removeCover,
       handleImagesUpload,
@@ -1347,7 +1341,6 @@ export default {
       MAX_IMAGES,
       handleImageError,
       navigateToEditTest,
-      // Методы для кастомных выпадающих списков
       toggleDropdown,
       getClassLabel,
       getHabitatLabel,
@@ -1576,14 +1569,14 @@ export default {
   margin-bottom: 10px;
   font-weight: 500;
   color: #333;
-  text-align: center; /* Центрируем заголовок */
+  text-align: center;
 }
 
 .preview-gallery {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  justify-content: center; /* Центрируем элементы в галерее */
+  justify-content: center;
 }
 
 .gallery-item {
@@ -1594,7 +1587,7 @@ export default {
   width: 200px;
   height: 200px;
   object-fit: cover;
-  border-radius: 8px; /* Увеличиваем также и радиус скругления для лучшего визуального эффекта */
+  border-radius: 8px;
 }
 
 .remove-image-button,
@@ -1808,48 +1801,41 @@ export default {
   margin-right: 5px;
 }
 
-/* 
- * Стили для модального окна с видео 
- * Настраиваем фиксированное позиционирование, чтобы окно занимало весь экран
- * Используем z-index для отображения поверх других элементов
- */
+/* Стили для модального окна с видео */
 .video-modal {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw; /* Используем единицу viewport width для учета всей ширины экрана */
-  height: 100vh; /* Используем единицу viewport height для учета всей высоты экрана */
-  background-color: rgba(0, 0, 0, 0.85); /* Более темный фон для лучшего контраста */
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.85);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  padding: 0; /* Убираем отступы для максимального использования пространства */
-  box-sizing: border-box; /* Включаем border-box для правильного расчета размеров */
-  overflow: hidden; /* Предотвращаем прокрутку страницы при открытом модальном окне */
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* 
  * Контейнер содержимого модального окна видео
- * Уменьшаем внутренние отступы для максимизации области видео
- * Используем flex для центрирования содержимого
  */
 .video-modal-content {
   position: relative;
-  width: 90%; /* Увеличиваем ширину контента до 90% от доступного пространства */
-  height: 85%; /* Устанавливаем высоту контента в 85% от высоты экрана */
-  max-width: 1600px; /* Ограничиваем максимальную ширину для больших экранов */
-  background-color: transparent; /* Делаем фон прозрачным для лучшего вида видео */
+  width: 90%;
+  height: 85%;
+  max-width: 1600px;
+  background-color: transparent;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  padding: 0; /* Убираем отступы для максимизации видео */
-  overflow: hidden; /* Предотвращаем выход содержимого за границы */
+  padding: 0;
+  overflow: hidden;
 }
 
 /* 
  * Контейнер для видеоплеера
- * Использует всю доступную площадь модального окна
  */
 .video-container {
   position: relative;
@@ -1858,27 +1844,25 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden; /* Предотвращаем появление полос прокрутки */
-  background-color: #000; /* Черный фон для частей, не занятых видео */
-  border-radius: 4px; /* Небольшое скругление для визуального комфорта */
+  overflow: hidden;
+  background-color: #000;
+  border-radius: 4px;
 }
 
 /* 
  * Стили для самого видеоплеера
- * object-fit: contain - сохраняет пропорции видео
  */
 .video-player {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* Важно для сохранения соотношения сторон видео */
+  object-fit: contain;
   max-height: 100%;
-  display: block; /* Убираем возможные отступы внутри блока */
-  background-color: #000; /* Черный фон для частей, не занятых видео */
+  display: block;
+  background-color: #000;
 }
 
 /* 
- * Улучшенная кнопка закрытия
- * Позиционируется поверх видео с хорошей видимостью
+ * Кнопка закрытия модального окна
  */
 .video-modal-content .close-modal {
   position: absolute;
@@ -1887,98 +1871,97 @@ export default {
   width: 40px;
   height: 40px;
   font-size: 28px;
-  background-color: rgba(255, 82, 82, 0.8); /* Полупрозрачный красный фон */
+  background-color: rgba(255, 82, 82, 0.8);
   color: white;
-  border: 2px solid white; /* Белая граница для контраста */
-  border-radius: 50%; /* Круглая форма */
+  border: 2px solid white;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 1001; /* Выше чем остальные элементы для гарантии доступности */
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); /* Тень для лучшей видимости */
-  transition: all 0.2s ease; /* Плавное изменение при наведении */
+  z-index: 1001;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
 }
 
 /* Эффект при наведении на кнопку закрытия */
 .video-modal-content .close-modal:hover {
-  background-color: rgba(255, 82, 82, 1); /* Полностью непрозрачный при наведении */
-  transform: scale(1.1); /* Небольшое увеличение для обратной связи */
+  background-color: rgba(255, 82, 82, 1);
+  transform: scale(1.1);
 }
 
 /* 
  * Адаптивные стили для разных размеров экрана
- * Оптимизация для мобильных устройств
  */
 @media (max-width: 768px) {
   .video-modal-content {
     padding: 15px;
-    max-width: 90%; /* Увеличиваем занимаемое пространство на мобильных */
-    min-height: 300px; /* Минимальная высота для размещения видео и контроллеров */
+    max-width: 90%;
+    min-height: 300px;
   }
   
   .video-container {
-    padding-bottom: 75%; /* Увеличенное соотношение для мобильных устройств */
+    padding-bottom: 75%;
   }
 }
 
 /* Адаптивные стили для видеоплеера на маленьких экранах */
 @media (max-width: 480px) {
   .video-modal-content {
-    width: 100%; /* Занимаем всю ширину экрана */
-    height: auto; /* Высота подстраивается под содержимое */
-    max-height: 90%; /* Ограничиваем максимальную высоту */
+    width: 100%;
+    height: auto;
+    max-height: 90%;
   }
 
   .video-container {
-    width: 100%; /* Занимаем всю ширину контейнера */
-    height: auto; /* Высота подстраивается под содержимое */
+    width: 100%;
+    height: auto;
   }
 
   .video-player {
-    width: 100%; /* Видео занимает всю ширину контейнера */
-    height: auto; /* Высота подстраивается под содержимое */
-    max-height: 90vh; /* Ограничиваем высоту видео */
+    width: 100%;
+    height: auto;
+    max-height: 90vh;
   }
 }
 
-/* Стили модального окна для изображений - улучшенный вариант */
+/* Стили модального окна для изображений*/
 .image-modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.85); /* Более темный фон для лучшего контраста */
+  background-color: rgba(0, 0, 0, 0.85);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  overflow: hidden; /* Предотвращаем прокрутку страницы при открытом модальном окне */
+  overflow: hidden;
 }
 
 .image-modal-content {
   position: relative;
-  background-color: transparent; /* Делаем фон прозрачным */
-  max-width: 95%; /* Увеличиваем максимальную ширину модального окна */
-  max-height: 95%; /* Увеличиваем максимальную высоту модального окна */
-  overflow: hidden; /* Скрываем возможные прокрутки */
-  width: auto; /* Отменяем фиксированную ширину */
-  padding: 0; /* Убираем отступы, чтобы не было белых полос */
-  border-radius: 0; /* Убираем скругления, чтобы не было белых углов */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); /* Добавляем тень для лучшего визуального отделения */
+  background-color: transparent;
+  max-width: 95%;
+  max-height: 95%;
+  overflow: hidden;
+  width: auto;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* Стили для полноэкранного просмотра изображений */
 .image-preview-full {
   max-width: 100%;
-  max-height: 90vh; /* Ограничиваем по высоте окна браузера */
-  object-fit: contain; /* Сохраняем соотношение сторон изображения */
+  max-height: 90vh;
+  object-fit: contain;
   display: block;
   margin: 0 auto;
 }
 
-/* Улучшенный стиль для кнопки закрытия модального окна */
+/* Стиль для кнопки закрытия модального окна */
 .image-modal-content .close-modal {
   position: absolute;
   top: 15px;
@@ -1989,8 +1972,8 @@ export default {
   line-height: 1;
   font-weight: bold;
   color: #ffffff;
-  background-color: rgba(255, 82, 82, 0.8); /* Полупрозрачный фон */
-  border: 2px solid white; /* Белая граница для лучшей видимости на любом фоне */
+  background-color: rgba(255, 82, 82, 0.8);
+  border: 2px solid white;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1998,13 +1981,13 @@ export default {
   cursor: pointer;
   z-index: 100;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  transition: all 0.2s ease; /* Плавное изменение при наведении */
+  transition: all 0.2s ease;
 }
 
 /* Эффект при наведении на кнопку закрытия */
 .image-modal-content .close-modal:hover {
-  background-color: rgba(255, 82, 82, 1); /* Полностью непрозрачный при наведении */
-  transform: scale(1.1); /* Небольшое увеличение для обратной связи */
+  background-color: rgba(255, 82, 82, 1);
+  transform: scale(1.1);
 }
 
 /* Адаптивные стили для разных размеров экрана */

@@ -6,7 +6,6 @@ from typing import List
 from .. import models, schemas, database
 from ..routers.auth import get_current_user, get_current_admin
 
-# Убираем prefix, т.к. он уже задается в __init__.py
 router = APIRouter(
     tags=["tests"]
 )
@@ -30,7 +29,7 @@ def get_db():
 async def create_test(
     test: schemas.TestCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(get_current_admin)  # Используем get_current_admin
+    current_user: schemas.UserResponse = Depends(get_current_admin)
 ):
     """
     Создание нового теста
@@ -112,7 +111,7 @@ async def update_test(
     test_id: int,
     test: schemas.TestUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(get_current_admin)  # Используем get_current_admin
+    current_user: schemas.UserResponse = Depends(get_current_admin)
 ):
     """
     Обновление теста по ID
@@ -149,7 +148,7 @@ async def update_test(
 async def delete_test(
     test_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(get_current_admin)  # Используем get_current_admin
+    current_user: schemas.UserResponse = Depends(get_current_admin)
 ):
     """
     Удаление теста по ID
@@ -260,7 +259,7 @@ async def create_or_update_test_questions(
     test_id: int,
     questions_data: schemas.TestQuestionsUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(get_current_admin)  # Используем get_current_admin
+    current_user: schemas.UserResponse = Depends(get_current_admin)
 ):
     """
     Создание или обновление вопросов теста

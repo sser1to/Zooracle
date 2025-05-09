@@ -212,7 +212,7 @@ export default {
   setup() {
     // Основные состояния
     const router = useRouter();
-    const route = useRoute(); // Добавляем доступ к текущему маршруту
+    const route = useRoute();
     const loading = ref(true);
     const error = ref(false);
     
@@ -385,7 +385,6 @@ export default {
         
       } catch (err) {
         console.error('Ошибка при загрузке статистики:', err);
-        // Не показываем ошибку пользователю, т.к. это не критичная информация
       }
     };
     
@@ -909,8 +908,7 @@ h2 {
 }
 
 .test-scores-scroll-container {
-  /* Устанавливаем фиксированную высоту для отображения ровно 3 записей */
-  height: 150px; /* Высота для 3 записей при высоте строки 50px */
+  height: 150px;
   overflow-y: auto;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
@@ -922,8 +920,7 @@ h2 {
   padding: 12px 10px;
   border-bottom: 1px solid #e0e0e0;
   align-items: center;
-  /* Устанавливаем фиксированную высоту для строки */
-  height: 26px; /* 50px с учётом padding */
+  height: 26px;
 }
 
 .test-score-item:hover {

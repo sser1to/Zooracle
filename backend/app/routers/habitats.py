@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException # type: ignore
-from sqlalchemy.orm import Session # type: ignore
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 from typing import List
-from sqlalchemy.exc import SQLAlchemyError # type: ignore
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..database import get_db
 from ..models import Habitat

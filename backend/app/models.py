@@ -1,5 +1,5 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Float, Text # type: ignore
-from sqlalchemy.orm import relationship # type: ignore
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Float, Text
+from sqlalchemy.orm import relationship
 from datetime import datetime, timedelta
 import secrets
 
@@ -54,9 +54,7 @@ class Animal(Base):
     animal_type = relationship("AnimalType", back_populates="animals")
     habitat = relationship("Habitat", back_populates="animals")
     test = relationship("Test", back_populates="animals")
-    # Добавляем cascade="all, delete-orphan" для автоматического удаления связанных фотографий
     photos = relationship("AnimalPhoto", back_populates="animal", cascade="all, delete-orphan")
-    # Также добавляем cascade для избранных животных
     favorite_animals = relationship("FavoriteAnimal", back_populates="animal", cascade="all, delete-orphan")
 
 
@@ -138,7 +136,7 @@ class TestScore(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     test_id = Column(Integer, ForeignKey("tests.id"))
-    score = Column(Text, nullable=False)  # Формат записи "X/Y" (правильных/всего)
+    score = Column(Text, nullable=False)
     date = Column(DateTime, nullable=False)
 
     user = relationship("User", back_populates="test_scores")

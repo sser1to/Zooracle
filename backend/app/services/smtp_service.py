@@ -13,12 +13,11 @@ logging.basicConfig(
 logger = logging.getLogger("smtp_service")
 
 # Получаем настройки SMTP из переменных окружения
-# Используем значения по умолчанию для обязательных параметров
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_SENDER_NAME = os.getenv("SMTP_SENDER_NAME", "Zooracle")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_SENDER_NAME = os.getenv("SMTP_SENDER_NAME")
 
 # Логирование загруженных настроек SMTP
 logger.info(f"SMTP настройки: Сервер={SMTP_SERVER}, Порт={SMTP_PORT}, Пользователь={SMTP_USERNAME}, Имя отправителя={SMTP_SENDER_NAME}")
@@ -145,8 +144,8 @@ def send_password_reset_email(email: str, reset_url: str) -> bool:
             server.ehlo()
             if server.has_extn('STARTTLS'):
                 logger.debug("Начинаем TLS шифрование")
-                server.starttls()  # Включаем шифрование
-                server.ehlo()  # Повторно представляемся после TLS
+                server.starttls()
+                server.ehlo()
             else:
                 logger.warning("Сервер не поддерживает STARTTLS!")
             
@@ -319,8 +318,8 @@ def send_email_verification_code(email: str, verification_code: str) -> bool:
             server.ehlo()
             if server.has_extn('STARTTLS'):
                 logger.debug("Начинаем TLS шифрование")
-                server.starttls()  # Включаем шифрование
-                server.ehlo()  # Повторно представляемся после TLS
+                server.starttls()
+                server.ehlo()
             else:
                 logger.warning("Сервер не поддерживает STARTTLS!")
             

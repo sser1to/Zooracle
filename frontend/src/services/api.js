@@ -36,8 +36,7 @@ apiClient.interceptors.response.use(
   error => {
     console.error('Ошибка API:', error.message);
     
-    // Если сервер вернул 401 (неавторизован) и пользователь был авторизован,
-    // то сессия истекла, нужно разлогинить пользователя
+    // Проверка на истечение сессии
     if (error.response && error.response.status === 401 && AuthService.isAuthenticated()) {
       console.warn('Сессия истекла, выполняется выход');
       AuthService.logout();

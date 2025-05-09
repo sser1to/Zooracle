@@ -116,7 +116,6 @@ export default {
       try {
         error.value = '';
         
-        // Более строгие проверки на стороне клиента
         // Проверка логина
         if (!registerData.login.trim()) {
           error.value = 'Логин не может быть пустым';
@@ -243,7 +242,6 @@ export default {
           error.value = `Ошибка запроса: ${err.message}`;
         }
       } finally {
-        // Убираем индикатор загрузки
         isLoading.value = false;
       }
     };
@@ -333,7 +331,7 @@ input {
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
-  margin-bottom: 10px; /* Уменьшаем с 15px до 10px для более компактного вида */
+  margin-bottom: 10px;
   transition: background-color 0.3s;
 }
 
@@ -366,7 +364,7 @@ input {
 }
 
 .auth-footer {
-  margin-top: 5px; /* Уменьшаем отступ сверху с 15px до 5px */
+  margin-top: 5px;
 }
 
 /* Стили для индикатора загрузки */

@@ -6,11 +6,11 @@ import ResetPasswordConfirmForm from './components/ResetPasswordConfirm.vue';
 import EmailVerification from './components/EmailVerification.vue';
 import AnimalCatalog from './components/AnimalCatalog.vue';
 import AddAnimal from './components/AddAnimal.vue';
-import EditAnimal from './components/EditAnimal.vue'; // Импортируем компонент редактирования
-import AnimalDetail from './components/AnimalDetail.vue'; // Импорт нового компонента
-import EditTest from './components/EditTest.vue'; // Импортируем компонент редактирования теста
-import TakeTest from './components/TakeTest.vue'; // Импортируем компонент прохождения теста
-import ProfilePage from './components/ProfilePage.vue'; // Импортируем компонент личного кабинета
+import EditAnimal from './components/EditAnimal.vue';
+import AnimalDetail from './components/AnimalDetail.vue';
+import EditTest from './components/EditTest.vue';
+import TakeTest from './components/TakeTest.vue';
+import ProfilePage from './components/ProfilePage.vue';
 import authService from './services/auth';
 
 /**
@@ -47,7 +47,6 @@ const routes = [
     path: '/reset-password/confirm',
     name: 'reset-password-confirm',
     component: ResetPasswordConfirmForm,
-    // Передаем query параметры в качестве пропсов компонента
     props: (route) => ({ token: route.query.token }),
     meta: { requiresAuth: false, title: 'Установка нового пароля - Zooracle' }
   },
@@ -73,7 +72,6 @@ const routes = [
   {
     path: '/reset-password-confirm',
     redirect: to => {
-      // Перенаправление на стандартный маршрут с сохранением параметров запроса
       return { path: '/reset-password/confirm', query: to.query };
     }
   },
@@ -82,7 +80,6 @@ const routes = [
   {
     path: '/logout',
     name: 'logout',
-    // Используем функцию перенаправления вместо компонента для более надежной работы
     redirect: () => {
       /**
        * Функция выхода из системы и перенаправления
@@ -240,14 +237,13 @@ router.beforeEach((to, from, next) => {
     if (to.name === 'reset-password-confirm') {
       if (!to.query.token) {
         console.warn('Попытка доступа к странице сброса пароля без токена');
-        next('/reset-password'); // Перенаправляем на страницу запроса сброса
+        next('/reset-password');
         return;
       } else {
         console.log('Токен найден в URL:', to.query.token);
       }
     }
     
-    // Продолжаем нормальный переход
     next();
   }
 });

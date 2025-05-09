@@ -104,22 +104,22 @@ export default {
   data() {
     return {
       codeDigits: ['', '', '', '', '', ''],
-      isVerifying: false,     // Флаг процесса проверки кода
-      isResending: false,     // Флаг процесса повторной отправки кода
-      isLoading: false,       // Глобальный флаг загрузки для блокировки интерфейса
-      hasError: false,        // Флаг ошибки ввода
-      errorMessage: '',       // Сообщение об ошибке
-      verified: false,        // Флаг успешной верификации
-      countdownSeconds: 5,    // Обратный отсчёт для редиректа после верификации
-      resendCountdown: 0,     // Обратный отсчёт для кнопки повторной отправки
-      resendTimer: null,      // Таймер повторной отправки
-      countdownTimer: null,   // Таймер обратного отсчёта
-      lastCodeSendTime: null, // Время последней отправки кода
-      showRateLimitModal: false, // Флаг отображения модального окна с ошибкой Rate Limit
-      cooldownPeriod: 60 * 1000, // Период ожидания между запросами отправки кода (60 секунд в миллисекундах)
-      lastVerifyAttemptTime: null, // Время последней попытки проверки кода
-      verifyAttempts: 0,      // Количество попыток проверки кода
-      maxVerifyAttempts: 5,   // Максимальное количество попыток проверки
+      isVerifying: false,
+      isResending: false,
+      isLoading: false,
+      hasError: false,
+      errorMessage: '',
+      verified: false,
+      countdownSeconds: 5,
+      resendCountdown: 0,
+      resendTimer: null,
+      countdownTimer: null,
+      lastCodeSendTime: null,
+      showRateLimitModal: false,
+      cooldownPeriod: 60 * 1000,
+      lastVerifyAttemptTime: null,
+      verifyAttempts: 0,
+      maxVerifyAttempts: 5,
     };
   },
   computed: {
@@ -179,7 +179,6 @@ export default {
       
       // Если заполнены все поля, автоматически проверяем код
       if (this.isCodeComplete) {
-        // Добавляем задержку перед автоматической проверкой для лучшего UX
         setTimeout(() => this.verifyCode(), 300);
       }
     },
@@ -513,7 +512,7 @@ export default {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  position: relative; /* Для корректного позиционирования индикатора загрузки */
+  position: relative;
 }
 
 .card-header {
@@ -659,8 +658,8 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 0 auto; /* Центрирование кнопки */
-  width: fit-content; /* Размер по содержимому */
+  margin: 0 auto;
+  width: fit-content;
 }
 
 .resend-button:hover:not(:disabled) {

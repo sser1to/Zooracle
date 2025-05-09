@@ -13,8 +13,7 @@ from ..services.minio_service import upload_file_to_minio, get_file_from_minio
 
 router = APIRouter()
 
-# Путь для временного хранения файлов перед отправкой в MinIO
-# Используем стандартную директорию для временных файлов /tmp вместо создания новой директории
+# Путь для временного хранения файлов перед отправкой в S3 Storage
 TEMP_UPLOAD_DIR = Path("/tmp/zooracle_uploads")
 TEMP_UPLOAD_DIR.mkdir(exist_ok=True)
 
@@ -58,7 +57,6 @@ async def upload_media_file(
         temp_file_path = TEMP_UPLOAD_DIR / f"{file_id}{file_extension}"
         
         # Сохраняем файл во временную директорию, используя потоковый метод
-        # чтобы избежать загрузки большого файла в память
         try:
             with open(temp_file_path, "wb") as buffer:
                 # Копируем данные из файла небольшими частями
@@ -105,15 +103,12 @@ async def upload_media_file(
                 "extension": file_extension
             }
         finally:
-            # Убедимся, что временный файл удаляется в любом случае
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
                 
     except HTTPException:
-        # Пробрасываем HTTP-исключения без изменений
         raise
     except Exception as e:
-        # Логируем ошибку для отладки
         print(f"Ошибка при загрузке файла: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка при загрузке файла: {str(e)}")
 

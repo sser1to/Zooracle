@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query # type: ignore
-from sqlalchemy.orm import Session # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
 from typing import List, Optional, Literal
-from sqlalchemy.exc import SQLAlchemyError # type: ignore
-from sqlalchemy import or_, desc, asc # type: ignore
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_, desc, asc
 
 from ..database import get_db
 from ..models import Animal, AnimalPhoto, AnimalType, Habitat, FavoriteAnimal, User
@@ -58,7 +58,7 @@ async def create_animal(
 @router.get("/", response_model=List[AnimalResponse])
 async def get_animals(
     skip: int = 0, 
-    limit: int = 10000,  # Увеличиваем лимит до большого значения, чтобы показывать все записи
+    limit: int = 10000,
     search: Optional[str] = None,
     animal_type_id: Optional[int] = None,
     habitat_id: Optional[int] = None,
@@ -90,7 +90,6 @@ async def get_animals(
     
     # Применяем поиск по названию, если указан
     if search:
-        # Используем оператор ilike для регистро-независимого поиска подстроки
         query = query.filter(Animal.name.ilike(f"%{search}%"))
     
     # Применяем фильтры, если они указаны
@@ -101,7 +100,6 @@ async def get_animals(
     
     # Фильтруем по избранным, если запрошено и пользователь авторизован
     if favorites_only and current_user:
-        # Подзапрос для получения ID избранных животных пользователя
         favorite_animal_ids = db.query(FavoriteAnimal.animal_id).filter(
             FavoriteAnimal.user_id == current_user.id
         ).subquery()
@@ -148,7 +146,7 @@ async def get_animal(
 @router.put("/{animal_id}", response_model=AnimalResponse)
 async def update_animal(
     animal_id: int,
-    animal_data: AnimalBase,  # Используем базовую схему с необязательными полями
+    animal_data: AnimalBase,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_admin_user)
 ):
@@ -189,7 +187,6 @@ async def update_animal(
         return db_animal
     except SQLAlchemyError as e:
         db.rollback()
-        # Логируем подробности ошибки для отладки
         print(f"ОШИБКА при работе с сессией БД: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка при обновлении животного: {str(e)}")
 
@@ -229,7 +226,6 @@ async def delete_animal(
         # Проверяем наличие связанного теста и удаляем его со всеми зависимостями
         if db_animal.test_id:
             try:
-                # Импортируем необходимые модели здесь, чтобы избежать циклических импортов
                 from ..models import Test, TestQuestion, Question, QuestionAnswer, AnswerOption, TestScore
                 
                 test_id = db_animal.test_id
@@ -291,21 +287,17 @@ async def delete_animal(
                 
             except Exception as e:
                 print(f"Ошибка при каскадном удалении теста: {str(e)}")
-                # Логируем ошибку, но продолжаем процесс удаления животного
         
         # Добавляем все возможные варианты пути для обложки
         if db_animal.preview_id:
-            # Обложка обычно хранится как изображение
             for ext in ALLOWED_IMAGE_EXTENSIONS:
                 for category in FILE_CATEGORIES:
                     file_patterns_to_delete.append(f"{category}/{db_animal.preview_id}{ext}")
         
         # Добавляем все возможные варианты пути для видео
         if db_animal.video_id:
-            # Видео файлы
             for ext in ALLOWED_VIDEO_EXTENSIONS:
                 file_patterns_to_delete.append(f"videos/{db_animal.video_id}{ext}")
-            # На всякий случай проверяем также и в папке с изображениями
             for ext in ALLOWED_VIDEO_EXTENSIONS:
                 file_patterns_to_delete.append(f"images/{db_animal.video_id}{ext}")
         
@@ -333,8 +325,6 @@ async def delete_animal(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Ошибка при удалении животного: {str(e)}")
     except Exception as e:
-        # В случае ошибки при удалении файлов, животное уже удалено из БД,
-        # но мы возвращаем информацию об ошибке при удалении файлов
         return {
             "message": "Животное удалено, но возникли проблемы при удалении некоторых файлов",
             "error": str(e)
@@ -404,7 +394,7 @@ async def get_animal_photos(
 @router.delete("/{animal_id}/photos/{photo_id}")
 async def delete_animal_photo(
     animal_id: int,
-    photo_id: str,  # Изменяем тип на str для поддержки UUID 
+    photo_id: str,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_admin_user)
 ):
@@ -420,7 +410,6 @@ async def delete_animal_photo(
     Returns:
         dict: Сообщение об успешном удалении
     """
-    # Ищем фото по photo_id (строка) вместо id (число)
     photo = db.query(AnimalPhoto).filter(
         AnimalPhoto.photo_id == photo_id, 
         AnimalPhoto.animal_id == animal_id

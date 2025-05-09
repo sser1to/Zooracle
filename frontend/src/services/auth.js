@@ -95,7 +95,6 @@ class AuthService {
    */
   async resetPassword(email) {
     try {
-      // Используем правильный метод и URL для запроса сброса пароля
       const response = await axios.post(`${API_URL}/auth/reset-password/request`, { email });
       console.log('Запрос на восстановление пароля отправлен успешно');
       return response.data;

@@ -7,7 +7,6 @@ from minio import Minio
 from minio.error import S3Error
 
 # Получаем данные подключения к S3 из переменных окружения
-# Изменяем переменные для внешнего S3-хранилища вместо локального MinIO
 S3_INTERNAL_ENDPOINT = os.getenv("S3_INTERNAL_ENDPOINT")
 S3_EXTERNAL_ENDPOINT = os.getenv("S3_EXTERNAL_ENDPOINT")
 S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY")
@@ -19,12 +18,11 @@ S3_USE_SSL = os.getenv("S3_USE_SSL").lower()
 BUCKET_NAME = S3_BUCKET_NAME
 
 # Инициализация клиента S3
-# Используем внутренний эндпоинт для доступа из контейнеров
 minio_client = Minio(
     S3_INTERNAL_ENDPOINT,
     access_key=S3_ACCESS_KEY,
     secret_key=S3_SECRET_KEY,
-    secure=S3_USE_SSL  # Используем SSL для безопасного соединения
+    secure=S3_USE_SSL
 )
 
 def ensure_bucket_exists(bucket_name: str):
@@ -39,11 +37,10 @@ def ensure_bucket_exists(bucket_name: str):
     """
     try:
         if not minio_client.bucket_exists(bucket_name):
-            # Попытка создать бакет (может потребоваться соответствующее разрешение)
+            # Попытка создать бакет
             minio_client.make_bucket(bucket_name)
             print(f"Создан новый бакет: {bucket_name}")
     except S3Error as e:
-        # Если бакет уже существует и создан другим пользователем, это нормально
         if "BucketAlreadyOwnedByYou" in str(e) or "BucketAlreadyExists" in str(e):
             print(f"Бакет {bucket_name} уже существует и доступен")
             return
@@ -80,8 +77,6 @@ def upload_file(bucket_name: str, file_obj, file_name: str, content_type: str):
         )
         
         # Формируем публичный URL для доступа к файлу
-        # Используем внешний эндпоинт для публичных ссылок
-        # Примечание: может потребоваться настройка CORS на S3 для доступа к файлам
         public_url = f"https://{S3_EXTERNAL_ENDPOINT}/{bucket_name}/{file_name}"
         
         return {
@@ -141,7 +136,6 @@ def delete_file(bucket_name: str, file_name: str):
             if "code: NoSuchKey" in str(e) or "Object does not exist" in str(e):
                 print(f"Файл {file_name} не найден в бакете {bucket_name}")
                 return False
-            # Пробрасываем остальные ошибки
             raise
             
         # Удаляем файл
@@ -207,7 +201,7 @@ async def delete_files_by_ids(file_ids: list, bucket_name: str = BUCKET_NAME) ->
             
         try:
             # Проверяем существование объекта в S3
-            object_name = file_id  # Может быть как просто ID, так и полный путь (category/id.ext)
+            object_name = file_id
             
             try:
                 minio_client.stat_object(bucket_name, object_name)
@@ -218,7 +212,6 @@ async def delete_files_by_ids(file_ids: list, bucket_name: str = BUCKET_NAME) ->
                     exists = False
                     print(f"Объект '{object_name}' не найден в бакете {bucket_name}")
                 else:
-                    # Пробрасываем другие S3 ошибки
                     raise
             
             # Если файл существует, удаляем его
@@ -275,7 +268,7 @@ async def upload_file_to_minio(file_path: str, object_name: str, bucket_name: st
         file_size = os.path.getsize(file_path)
         
         # Определяем тип контента на основе расширения файла
-        content_type = "application/octet-stream"  # По умолчанию
+        content_type = "application/octet-stream"
         ext = os.path.splitext(file_path)[1].lower()
         
         # Таблица соответствия расширений и MIME-типов

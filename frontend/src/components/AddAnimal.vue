@@ -261,9 +261,9 @@ export default {
     const habitats = ref([]);
     const error = ref('');
     const isSubmitting = ref(false);
-    const showCoverRequiredError = ref(false); // Флаг для отображения ошибки обязательной обложки
-    const nameErrorMessage = ref(''); // Сообщение об ошибке для имени животного
-    const isCheckingName = ref(false); // Флаг проверки имени
+    const showCoverRequiredError = ref(false);
+    const nameErrorMessage = ref('');
+    const isCheckingName = ref(false);
     
     // Данные животного
     const animalData = reactive({
@@ -316,7 +316,6 @@ export default {
         return true;
       } catch (err) {
         console.error('Ошибка при проверке уникальности имени:', err);
-        // При ошибке лучше разрешить продолжение, но залогировать проблему
         return true;
       } finally {
         isCheckingName.value = false;
@@ -442,7 +441,7 @@ export default {
       const file = event.target.files[0];
       if (!file) return;
       
-      // Проверка на размер файла (4MB = 4 * 1024 * 1024 байт)
+      // Проверка на размер файла
       if (file.size > 4 * 1024 * 1024) {
         error.value = 'Размер файла обложки не должен превышать 4 МБ';
         return;
@@ -557,7 +556,6 @@ export default {
         return response.data.file_id;
       } catch (err) {
         console.error('Ошибка при загрузке файла:', err);
-        // Не генерируем исключение, а просто возвращаем null
         return null;
       }
     };
@@ -652,7 +650,6 @@ export default {
           description: animalData.description,
           animal_type_id: animalData.animal_type_id ? parseInt(animalData.animal_type_id, 10) : null,
           habitat_id: animalData.habitat_id ? parseInt(animalData.habitat_id, 10) : null,
-          // Используем null вместо undefined, если ID не был получен
           preview_id: previewId,
           video_id: videoId
         };
@@ -675,7 +672,6 @@ export default {
                   // Логируем идентификатор загруженного файла
                   console.log(`Загружено изображение с ID: ${imageId}`);
                   
-                  // Формируем правильную структуру данных для API - только photo_id, без animal_id
                   const photoData = {
                     photo_id: imageId
                   };
@@ -790,7 +786,6 @@ export default {
       removeVideo,
       submitForm,
       MAX_IMAGES,
-      // Новые методы для кастомных выпадающих списков
       toggleDropdown,
       getClassLabel,
       getHabitatLabel,
@@ -991,13 +986,13 @@ export default {
   margin-top: 10px;
   display: flex;
   flex-direction: column;
-  align-items: center; /* Центрирование содержимого по горизонтали */
+  align-items: center;
 }
 
 /* Контейнер для изображения обложки и кнопки удаления */
 .cover-preview-wrapper {
-  position: relative; /* Относительное позиционирование для абсолютного позиционирования крестика */
-  display: inline-block; /* Занимает только необходимое пространство */
+  position: relative;
+  display: inline-block;
 }
 
 .preview-image {
@@ -1012,7 +1007,7 @@ export default {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 10px;
-  justify-content: center; /* Центрирование галереи изображений */
+  justify-content: center;
 }
 
 .gallery-item {
@@ -1058,7 +1053,7 @@ export default {
   margin-top: 10px;
   display: flex;
   align-items: center;
-  justify-content: center; /* Центрирование информации о видео */
+  justify-content: center;
   gap: 10px;
 }
 

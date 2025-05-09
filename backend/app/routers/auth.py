@@ -43,8 +43,6 @@ from ..services.smtp_service import send_email_verification_code, send_password_
 logger = logging.getLogger("auth_router")
 
 # Создаем экземпляр OAuth2PasswordBearer для получения токена из запроса
-# Обратите внимание на исправленный URL для tokenUrl, он должен соответствовать
-# фактическому пути к эндпоинту login
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 router = APIRouter()
@@ -131,7 +129,6 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
         }
             
     except HTTPException:
-        # Пробрасываем HTTPException дальше
         raise
     except Exception as e:
         # Логируем и обрабатываем все остальные исключения
@@ -183,7 +180,6 @@ async def request_email_verification(verification_data: EmailVerificationRequest
     # Проверяем наличие временных данных для этого email
     pending_user = get_pending_user(verification_data.email)
     
-    # Для безопасности не раскрываем, существуют ли такие данные
     if not pending_user:
         logger.warning(f"Запрос верификации для несуществующего email в ожидающих регистрацию: {verification_data.email}")
         return {"message": "Если указанный email существует и не подтвержден, код подтверждения был отправлен"}
@@ -304,10 +300,8 @@ def request_password_reset(reset_request: PasswordResetRequest, db: Session = De
         # Проверяем, есть ли пользователь с таким email
         user = db.query(User).filter(User.email == reset_request.email).first()
         
-        # Для безопасности не сообщаем, существует ли такой пользователь
         if not user:
             logger.warning(f"Запрос сброса пароля для несуществующего пользователя: {reset_request.email}")
-            # Возвращаем успешный ответ, чтобы не раскрывать информацию о существовании пользователя
             return {"message": "Если указанный email зарегистрирован, инструкции по сбросу пароля были отправлены."}
         
         # Проверяем, есть ли активные токены для этого пользователя, и инвалидируем их
@@ -346,7 +340,6 @@ def request_password_reset(reset_request: PasswordResetRequest, db: Session = De
         return {"message": "Инструкции по сбросу пароля отправлены на указанный email."}
     
     except HTTPException:
-        # Пробрасываем HTTPException дальше
         raise
     except Exception as e:
         logger.error(f"Ошибка при обработке запроса на сброс пароля: {str(e)}")
@@ -420,7 +413,6 @@ def confirm_password_reset(reset_data: PasswordReset, db: Session = Depends(get_
         return {"message": "Пароль успешно изменен"}
     
     except HTTPException:
-        # Пробрасываем HTTPException дальше
         raise
     except Exception as e:
         logger.error(f"Ошибка при подтверждении сброса пароля: {str(e)}")
@@ -489,11 +481,10 @@ def validate_reset_token(token: str, db: Session = Depends(get_db)):
                 "reason": "email_changed"
             }
         
-        # Если все проверки пройдены, токен действителен
         logger.info(f"Токен {token} действителен")
         return {
             "valid": True,
-            "email": token_record.email  # Можно добавить дополнительную информацию
+            "email": token_record.email
         }
         
     except Exception as e:
@@ -547,9 +538,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         is_admin=user.is_admin
     )
 
-
-# Добавляем функцию для получения текущего администратора
-# Это обертка над get_current_user, которая проверяет права администратора
 async def get_current_admin(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
     """
     Проверяет, что текущий пользователь имеет права администратора
@@ -618,7 +606,7 @@ async def update_user_login(
         # Проверяем, что логин не занят другим пользователем
         existing_user = db.query(User).filter(
             User.login == login_data.login,
-            User.id != current_user.id  # Исключаем проверку текущего пользователя
+            User.id != current_user.id
         ).first()
         
         if existing_user:
@@ -649,7 +637,6 @@ async def update_user_login(
         return {"message": "Логин успешно обновлен"}
         
     except HTTPException:
-        # Пробрасываем HTTPException дальше
         raise
     except Exception as e:
         logger.error(f"Ошибка при обновлении логина: {str(e)}")

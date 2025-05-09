@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field # type: ignore
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Union
 from datetime import datetime
 
@@ -49,7 +49,7 @@ class UserCreate(UserBase):
 
 
 class UserLogin(BaseModel):
-    username: str  # принимает логин или email
+    username: str
     password: str
 
 
@@ -99,7 +99,6 @@ class AnimalPhotoBase(BaseModel):
 
 
 class AnimalPhotoCreate(AnimalPhotoBase):
-    # Удаляем поле animal_id, так как оно передается в пути URL
     pass
 
 
@@ -187,7 +186,7 @@ class QuestionAnswerCreate(QuestionAnswerBase):
     pass
 
 
-# Создаём специальную схему для добавления ответа к вопросу через маршрут POST /questions/{question_id}/answers/
+# Специальная схема для добавления ответа к вопросу
 class AddAnswerToQuestionCreate(BaseModel):
     """
     Схема для добавления ответа к вопросу по ID
@@ -218,7 +217,7 @@ class TestQuestionCreate(TestQuestionBase):
     pass
 
 
-# Создаём специальную схему для добавления вопроса к тесту через маршрут POST /{test_id}/questions/
+# Специальная схема для добавления вопроса к тесту
 class AddQuestionToTestCreate(BaseModel):
     """
     Схема для добавления вопроса к тесту по ID

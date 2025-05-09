@@ -292,8 +292,8 @@ export default {
         questionId: question.id,
         questionType: question.question_type_id,
         textAnswer: '',
-        selectedOptions: [], // Для типов 2 и 3
-        isCorrect: false // Будет установлено после проверки
+        selectedOptions: [],
+        isCorrect: false
       }));
     };
     
@@ -391,7 +391,6 @@ export default {
         console.log('Результат теста сохранен:', response.data);
       } catch (err) {
         console.error('Ошибка при сохранении результата теста:', err);
-        // Не показываем ошибку пользователю, так как это не критично
       }
     };
     
